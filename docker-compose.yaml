@@ -1,0 +1,89 @@
+services:
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true" # Atstāj 'true' tikai lokālai izstrādei
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      # --- Produkcijas SSL (Let's Encrypt) iestatījumi ---
+      #- "--entrypoints.websecure.address=:443"
+      #- "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      #- "--certificatesresolvers.myresolver.acme.email=tavs@epasts.com"
+      #- "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "8080:8080" # Traefik informācijas panelis (dashboard)
+      #- "443:443" # Atkomentēt produkcijai
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
+    networks:
+      - event-network
+
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: event_scheduler
+    ports:          
+      - "5432:5432"        # probably close this later on...
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - event-network
+
+  cache:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - event-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000" # probably close this later on...
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://admin:secretpassword@database:5432/event_scheduler
+      - REDIS_URL=redis://cache:6379
+    depends_on:
+      - database
+      - cache
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=PathPrefix(`/api`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+    networks:
+      - event-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: build-stage # For ease of dev. Apstādinām būvēšanu Node.js posmā (neiekļaujam Nginx)
+    command: npm run dev -- --host 0.0.0.0 --port 80 # Palaižam Vite izstrādes serveri
+    volumes:
+      - ./frontend:/app # Sinhronizējam lokālos failus ar konteineri
+      - /app/node_modules # Bet izmantojam konteinerā uzinstalētās pakotnes
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+    networks:
+      - event-network
+
+networks:
+  event-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
