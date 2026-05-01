@@ -69,7 +69,7 @@
           <div v-else class="grid gap-3">
             <div v-for="table in tables" :key="table.id" class="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-gray-50">
               <div>
-                <div class="font-bold text-gray-800">{{ table.name }}</div>
+                <div class="font-bold text-gray-800 break-words max-w-xs">{{ table.name }}</div>
               </div>
               <router-link :to="`/edit-table/${table.id}`" class="text-blue-600 text-sm font-semibold hover:underline">
                 Rediģēt
@@ -97,22 +97,37 @@
           </div>
           
           <div v-else class="grid gap-3">
-            <div v-for="event in events" :key="event.id" class="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-gray-50">
-              <div>
-                <div class="font-bold text-gray-800">{{ event.name }}</div>
-                <div class="text-xs text-gray-500 mt-1 flex items-center gap-2">
+            <div v-for="event in events" :key="event.id" class="p-4 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between items-start sm:items-center bg-gray-50 gap-1">
+              <!-- Kreisā puse: Teksts un Atslēga -->
+              <div class="flex-1 min-w-0 text-left">
+                <div class="font-bold text-gray-800 break-words w-full max-w-xs sm:max-w-3xs">{{ event.name }}</div>
+                <div class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
                   <span class="bg-gray-200 px-2 py-0.5 rounded">{{ event.role_type }}</span>
-                  <span v-if="event.role_type === 'Owner'" class="text-blue-500 flex items-center gap-2" title="Ielūguma atslēga">
-                    Atslēga: <span class="font-mono bg-blue-50 px-1 rounded">{{ event.invite_key }}</span>
-                    <button @click.prevent="regenerateKey(event.id)" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition border border-blue-200" title="Ģenerēt jaunu atslēgu">
-                      ↻ 
-                    </button>
+                  
+                  <!-- Paslēpta / Atklāta Atslēga -->
+                  <span v-if="event.role_type === 'Owner'" class="text-blue-600 flex items-center gap-2">
+                    Atslēga: 
+                    <span v-if="!revealedKeys.has(event.id)">
+                      <button @click="revealedKeys.add(event.id)" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition font-medium">Atklāt</button>
+                    </span>
+                    <span v-else class="flex items-center gap-2">
+                      <span class="font-mono bg-blue-50 px-1 rounded">{{ event.invite_key }}</span>
+                      <button @click="regenerateKey(event.id)" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition" title="Ģenerēt jaunu atslēgu">↻</button>
+                      <button @click="revealedKeys.delete(event.id)" class="text-gray-400 hover:text-gray-600 px-1">✕</button>
+                    </span>
                   </span>
                 </div>
               </div>
-              <router-link :to="`/event/${event.id}`" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">
-                Siltumkarte
-              </router-link>
+              
+              <!-- Labā puse: Pogas -->
+              <div class="flex flex-col gap-2 shrink-0">
+                <router-link :to="`/event/${event.id}`" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">
+                  Siltumkarte
+                </router-link>
+                <!-- Dzēst vai Pamest -->
+                <button v-if="event.role_type === 'Owner'" @click="deleteEvent(event.id)" class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-sm font-semibold border border-red-200 transition">Dzēst</button>
+                <button v-else @click="leaveEvent(event.id)" class="text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-lg text-sm font-semibold border border-orange-200 transition">Pamest</button>
+              </div>
             </div>
           </div>
         </div>
@@ -135,6 +150,7 @@ const tables = ref<any[]>([])
 const events = ref<any[]>([])
 
 // UI stāvokļi
+const revealedKeys = ref(new Set<number>());
 const showCreateEvent = ref(false)
 const showJoinEvent = ref(false)
 const actionMessage = ref('')
@@ -248,6 +264,24 @@ const regenerateKey = async (eventId: number) => {
     actionError.value = 'Savienojuma kļūda';
   }
 }
+
+const deleteEvent = async (id: number) => {
+  if (!confirm('Vai tiešām vēlaties dzēst šo pasākumu visiem dalībniekiem?')) return;
+  try {
+    const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+    if (res.ok) await fetchData();
+  } catch (e) { console.error(e); }
+}
+
+const leaveEvent = async (id: number) => {
+  if (!confirm('Vai tiešām vēlaties pamest šo pasākumu?')) return;
+  try {
+    // Lietotājs izmet pats sevi (padodam viņa ID)
+    const res = await fetch(`/api/events/${id}/participants/${authStore.user?.userId}`, { method: 'DELETE' });
+    if (res.ok) await fetchData();
+  } catch (e) { console.error(e); }
+}
+
 
 const logout = () => {
   authStore.user = null

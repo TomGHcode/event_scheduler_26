@@ -37,15 +37,24 @@
           <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 class="font-bold text-lg text-gray-800 mb-2">Dalībnieki</h3>
             <ul class="space-y-2">
-              <li v-for="p in heatmapData" :key="p.username" class="flex items-center gap-2 text-sm text-gray-600">
+              <li v-for="p in heatmapData" :key="p.username" class="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
                 <span class="w-2 h-2 rounded-full" :class="p.intervals.length > 0 ? 'bg-green-500' : 'bg-gray-300'"></span>
-                {{ p.username }} 
-                <span v-if="p.role === 'Owner'" class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded ml-auto border border-gray-200">Īpašnieks</span>
+                <span class="flex-1 truncate">{{ p.username }}</span>
+                <span v-if="p.role === 'Owner'" class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Īpašnieks</span>
+                
+                <!-- Izmešanas poga -->
+                <button 
+                  v-if="myRole === 'Owner' && p.userId !== myUserId" 
+                  @click="kickParticipant(p.userId)" 
+                  class="text-xs text-red-500 hover:bg-red-100 px-2 py-0.5 rounded transition"
+                  title="Izmest no pasākuma"
+                >
+                  Izmest
+                </button>
               </li>
             </ul>
           </div>
         </div>
-
         <!-- Labā kolonna: Siltumkarte -->
         <div class="lg:col-span-3">
           <HeatmapGrid :heatmapData="heatmapData" :totalParticipants="totalParticipants" />
@@ -56,12 +65,15 @@
 </template>
 
 <script setup lang="ts">
+import { useAuthStore } from '../stores/auth'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import HeatmapGrid from '../components/HeatmapGrid.vue'
 
 const route = useRoute()
 const eventId = route.params.id
+const authStore = useAuthStore()
+const myUserId = authStore.user?.userId
 
 // Datu stāvokļi
 const heatmapData = ref<any[]>([])
@@ -74,6 +86,7 @@ const isLoading = ref(true)
 const isSavingTable = ref(false)
 const errorMsg = ref('')
 const updateMessage = ref('')
+const myRole = ref('')
 
 // WebSocket mainīgais
 let ws: WebSocket | null = null;
@@ -126,6 +139,7 @@ const loadEventData = async (isSilent = false) => {
     
     heatmapData.value = hData.data
     totalParticipants.value = hData.totalParticipants
+    myRole.value = hData.myRole
     
     // Lai lietotājs nezaudētu savu izvēlni, kamēr pats kaut ko maina
     if (!isSilent) {
@@ -143,6 +157,19 @@ const loadEventData = async (isSilent = false) => {
     if (!isSilent) errorMsg.value = 'Savienojuma kļūda vai jums nav piekļuves.'
   } finally {
     if (!isSilent) isLoading.value = false
+  }
+}
+
+const kickParticipant = async (targetId: number) => {
+  if (!confirm('Izmest šo dalībnieku no pasākuma?')) return;
+  try {
+    const res = await fetch(`/api/events/${eventId}/participants/${targetId}`, { method: 'DELETE' });
+    if (res.ok) {
+      // WebSocket automātiski atjaunos ekrānu, bet sirdsmieram varam izsaukt loadEventData(true)
+      await loadEventData(true);
+    }
+  } catch (error) {
+    console.error(error);
   }
 }
 
