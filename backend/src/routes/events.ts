@@ -31,6 +31,11 @@ const CreateEventSchema = z.object({
   description: z.string().optional(),
 });
 
+const UpdateEventSchema = z.object({
+  name: z.string().min(1, "Nosaukums ir obligāts").max(64, "Maksimums 64 simboli"),
+  description: z.string().max(1500, "Maksimums 1500 simboli").optional(),
+});
+
 const JoinEventSchema = z.object({
   invite_key: z.string().min(1, "Ielūguma atslēga ir obligāta"),
   availability_table_id: z.number().nullable().optional(),
@@ -183,6 +188,14 @@ export default async function eventRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ error: 'Jums nav piekļuves šim pasākumam' });
       }
 
+      // Iegūstam pasākuma datus (nosaukumu un aprakstu)
+      const eventDetails = await db.selectFrom('event_tables')
+        .select(['name', 'description'])
+        .where('id', '=', eventId)
+        .executeTakeFirst();
+
+      if (!eventDetails) return reply.status(404).send({ error: 'Pasākums nav atrasts' });
+
       // B. Iegūstam visus dalībniekus un viņu intervālus
       const rawData = await db.selectFrom('event_participants as ep')
         .innerJoin('users as u', 'u.id', 'ep.user_id')
@@ -229,7 +242,9 @@ export default async function eventRoutes(fastify: FastifyInstance) {
       const heatmapData = Array.from(participantsMap.values());
 
       return reply.status(200).send({ 
-        eventId, 
+        eventId,
+        eventName: eventDetails.name,
+        eventDescription: eventDetails.description,
         totalParticipants: heatmapData.length,
 		    myTableId: membership.availability_table_id,
         myRole: membership.role_type,
@@ -395,6 +410,42 @@ export default async function eventRoutes(fastify: FastifyInstance) {
       return reply.status(200).send({ message: 'Dalībnieks noņemts' });
     } catch (error) {
       return reply.status(500).send({ error: 'Neizdevās noņemt dalībnieku' });
+    }
+  });
+
+  // 9. Rediģēt pasākuma nosaukumu un aprakstu (Tikai Owner)
+  fastify.patch('/:id', async (request, reply) => {
+    try {
+      const eventId = parseInt((request.params as any).id as string, 10);
+      const userId = request.user!.userId;
+
+      const parsedBody = UpdateEventSchema.safeParse(request.body);
+      if (!parsedBody.success) return reply.status(400).send({ error: 'Nekorekti dati' });
+
+      const membership = await db.selectFrom('event_participants')
+        .select('role_type')
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+
+      if (!membership || membership.role_type !== 'Owner') {
+        return reply.status(403).send({ error: 'Tikai īpašnieks var rediģēt pasākumu' });
+      }
+
+      await db.updateTable('event_tables')
+        .set({ 
+          name: parsedBody.data.name, 
+          description: parsedBody.data.description || null 
+        })
+        .where('id', '=', eventId)
+        .execute();
+
+      // Paziņojam visiem caur WebSocket, lai uzreiz atjaunojas nosaukums un apraksts
+      broadcastEventUpdate(eventId); 
+
+      return reply.status(200).send({ message: 'Pasākums veiksmīgi atjaunināts' });
+    } catch (error) {
+      return reply.status(500).send({ error: 'Neizdevās atjaunināt pasākumu' });
     }
   });
 }

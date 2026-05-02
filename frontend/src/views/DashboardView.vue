@@ -22,8 +22,8 @@
       <div v-if="showCreateEvent" class="bg-white p-6 rounded-2xl shadow-sm border border-blue-200 mb-8">
         <h3 class="font-bold text-lg mb-4 text-blue-800">Izveidot Jaunu Pasākumu</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <input v-model="newEventName" type="text" placeholder="Pasākuma nosaukums" class="px-4 py-2 border rounded-lg focus:ring-blue-500" />
-          <input v-model="newEventDesc" type="text" placeholder="Apraksts (neobligāts)" class="px-4 py-2 border rounded-lg focus:ring-blue-500" />
+          <input v-model="newEventName" type="text" maxlength="64" placeholder="Pasākuma nosaukums" class="px-4 py-2 border rounded-lg focus:ring-blue-500" />
+          <input v-model="newEventDesc" type="text" maxlength="1500" placeholder="Apraksts (neobligāts)" class="px-4 py-2 border rounded-lg focus:ring-blue-500" />
         </div>
         <div class="flex gap-2">
           <button @click="createEvent" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">Izveidot</button>
@@ -52,12 +52,12 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
         <!-- Kreisā Puse: Pieejamības Tabulas -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-bold text-gray-700">Manas Tabulas</h2>
-            <button @click="$router.push('/create-table')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm">
+        <!-- Pievienojam min-w-0 galvenajam baltajam blokam -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-w-0">
+          <div class="flex justify-between items-center mb-6 gap-4">
+            <h2 class="text-xl font-bold text-gray-700 truncate">Manas Tabulas</h2>
+            <button @click="$router.push('/create-table')" class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm">
               + Jauna Tabula
             </button>
           </div>
@@ -66,12 +66,17 @@
             Tev vēl nav nevienas pieejamības tabulas.
           </div>
           
-          <div v-else class="grid gap-3">
-            <div v-for="table in tables" :key="table.id" class="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-gray-50">
-              <div>
-                <div class="font-bold text-gray-800 break-words max-w-xs">{{ table.name }}</div>
+          <div v-else class="flex flex-col gap-3">
+            <!-- Pievienots min-w-0 iekšējam karšu elementam -->
+            <div v-for="table in tables" :key="table.id" class="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-gray-50 gap-4 min-w-0">
+              
+              <!-- flex-1 un min-w-0 ļauj tekstam lūzt, neizbīdot malas -->
+              <div class="flex-1 min-w-0">
+                <div class="font-bold text-gray-800 break-words">{{ table.name }}</div>
               </div>
-              <router-link :to="`/edit-table/${table.id}`" class="text-blue-600 text-sm font-semibold hover:underline">
+              
+              <!-- shrink-0 neļauj pogai saspiesties -->
+              <router-link :to="`/edit-table/${table.id}`" class="shrink-0 text-blue-600 text-sm font-semibold hover:underline">
                 Rediģēt
               </router-link>
             </div>
@@ -79,10 +84,11 @@
         </div>
 
         <!-- Labā Puse: Mani Pasākumi -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-bold text-gray-700">Mani Pasākumi</h2>
-            <div class="flex gap-2">
+        <!-- Pievienojam min-w-0 galvenajam baltajam blokam -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-w-0">
+          <div class="flex justify-between items-center mb-6 gap-4">
+            <h2 class="text-xl font-bold text-gray-700 truncate">Mani Pasākumi</h2>
+            <div class="flex gap-2 shrink-0">
               <button @click="toggleJoin" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-bold transition">
                 Pievienoties
               </button>
@@ -96,31 +102,34 @@
             Tu vēl nepiedalies nevienā pasākumā.
           </div>
           
-          <div v-else class="grid gap-3">
-            <div v-for="event in events" :key="event.id" class="p-4 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between items-start sm:items-center bg-gray-50 gap-1">
+          <div v-else class="flex flex-col gap-3">
+            <div v-for="event in events" :key="event.id" class="p-4 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between items-start sm:items-center bg-gray-50 gap-4 min-w-0">
+              
               <!-- Kreisā puse: Teksts un Atslēga -->
-              <div class="flex-1 min-w-0 text-left">
-                <div class="font-bold text-gray-800 break-words w-full max-w-xs sm:max-w-3xs">{{ event.name }}</div>
+              <!-- Pievienots flex-1 min-w-0 w-full drošībai -->
+              <div class="flex-1 min-w-0 w-full text-left">
+                <div class="font-bold text-gray-800 break-words">{{ event.name }}</div>
                 <div class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
-                  <span class="bg-gray-200 px-2 py-0.5 rounded">{{ event.role_type }}</span>
+                  <span class="bg-gray-200 px-2 py-0.5 rounded shrink-0">{{ event.role_type }}</span>
                   
                   <!-- Paslēpta / Atklāta Atslēga -->
-                  <span v-if="event.role_type === 'Owner'" class="text-blue-600 flex items-center gap-2">
-                    Atslēga: 
+                  <span v-if="event.role_type === 'Owner'" class="text-blue-600 flex flex-wrap items-center gap-2">
+                    <span class="shrink-0">Atslēga:</span> 
                     <span v-if="!revealedKeys.has(event.id)">
                       <button @click="revealedKeys.add(event.id)" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition font-medium">Atklāt</button>
                     </span>
-                    <span v-else class="flex items-center gap-2">
-                      <span class="font-mono bg-blue-50 px-1 rounded">{{ event.invite_key }}</span>
-                      <button @click="regenerateKey(event.id)" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition" title="Ģenerēt jaunu atslēgu">↻</button>
-                      <button @click="revealedKeys.delete(event.id)" class="text-gray-400 hover:text-gray-600 px-1">✕</button>
+                    <span v-else class="flex items-center gap-2 flex-wrap min-w-0">
+                      <!-- break-all drošībai, ja atslēga nejauši kļūst pārāk gara -->
+                      <span class="font-mono bg-blue-50 px-1 rounded break-all">{{ event.invite_key }}</span>
+                      <button @click="regenerateKey(event.id)" class="shrink-0 bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition" title="Ģenerēt jaunu atslēgu">↻</button>
+                      <button @click="revealedKeys.delete(event.id)" class="shrink-0 text-gray-400 hover:text-gray-600 px-1">✕</button>
                     </span>
                   </span>
                 </div>
               </div>
               
               <!-- Labā puse: Pogas -->
-              <div class="flex flex-col gap-2 shrink-0">
+              <div class="flex flex-col gap-2 shrink-0 mt-2 sm:mt-0">
                 <router-link :to="`/event/${event.id}`" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">
                   Siltumkarte
                 </router-link>
@@ -131,7 +140,6 @@
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div>

@@ -11,9 +11,9 @@ const IntervalSchema = z.object({
 });
 
 const CreateTableSchema = z.object({
-  name: z.string().min(1, "Tabulas nosaukums ir obligāts"),
+  name: z.string().min(1, "Tabulas nosaukums ir obligāts").max(64, "Maksimāli 64 simboli"),
   is_active: z.boolean().default(true),
-  intervals: z.array(IntervalSchema).max(42, "Maksimāli atļauti 42 intervāli"), // Ierobežojums līdz 42 
+  intervals: z.array(IntervalSchema).max(42, "Maksimāli atļauti 42 intervāli"),
 });
 
 export default async function availabilityRoutes(fastify: FastifyInstance) {
