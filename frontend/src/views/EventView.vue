@@ -73,13 +73,24 @@
               </div>
 
               <!-- Dalībnieku saraksts -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="font-bold text-lg text-gray-800 mb-2">Dalībnieki</h3>
-                <ul class="space-y-2">
-                  <li v-for="p in heatmapData" :key="p.username" class="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="font-bold text-lg text-gray-800">Dalībnieki <span class="text-gray-500 text-sm font-normal">({{ heatmapData.length }})</span></h3>
+                </div>
+                
+                <!-- Ja isParticipantsExpanded ir true, uzliekam max-augstumu un ritināšanas joslu -->
+                <ul 
+                  class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-2 transition-all"
+                  :class="{ 'max-h-[624px] overflow-y-auto custom-scrollbar pr-2': isParticipantsExpanded }"
+                >
+                  <li 
+                    v-for="p in (isParticipantsExpanded ? heatmapData : heatmapData.slice(0, 12))" 
+                    :key="p.username" 
+                    class="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100"
+                  >
                     <span class="w-2 h-2 rounded-full shrink-0" :class="p.intervals.length > 0 ? 'bg-green-500' : 'bg-gray-300'"></span>
                     <span class="flex-1 min-w-0 truncate cursor-help" :title="p.username">{{ p.username }}</span>
-                    <span v-if="p.role === 'Owner'" :title="p.role" class="shrink-0 text-xs bg-gray-200 text-gray-700 px-0.5 py-0.3 rounded border border-gray-300 cursor-help">★</span>
+                    <span v-if="p.role === 'Owner'" :title="p.role" class="shrink-0 text-[10px] bg-gray-200 text-gray-700 px-1 py-0.5 rounded border border-gray-300 cursor-help flex items-center justify-center leading-none">★</span>
                     
                     <!-- Izmešanas poga -->
                     <button 
@@ -88,12 +99,27 @@
                       class="shrink-0 text-xs text-red-500 hover:bg-red-100 px-2 py-0.5 rounded transition"
                       title="Izmest no pasākuma"
                     >
-                      Izmest
+                      X
                     </button>
                   </li>
                 </ul>
-              </div>
 
+                <!-- Vairāk / Mazāk pogas -->
+                <button 
+                  v-if="heatmapData.length > 16 && !isParticipantsExpanded" 
+                  @click="isParticipantsExpanded = true" 
+                  class="mt-4 w-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-semibold py-2 rounded-lg transition border border-blue-100"
+                >
+                  Vairāk ({{ heatmapData.length - 12 }})
+                </button>
+                <button 
+                  v-if="isParticipantsExpanded" 
+                  @click="isParticipantsExpanded = false" 
+                  class="mt-4 w-full bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold py-2 rounded-lg transition"
+                >
+                  Rādīt mazāk
+                </button>
+              </div>
             </div>
 
             <!-- Labā kolonna: Siltumkarte -->
@@ -138,6 +164,7 @@ const isSavingTable = ref(false)
 const errorMsg = ref('')
 const updateMessage = ref('')
 const myRole = ref('')
+const isParticipantsExpanded = ref(false)
 
 // WebSocket mainīgais
 let ws: WebSocket | null = null;
@@ -191,7 +218,6 @@ const loadEventData = async (isSilent = false) => {
     heatmapData.value = hData.data
     totalParticipants.value = hData.totalParticipants
     myRole.value = hData.myRole
-    
     eventName.value = hData.eventName
     eventDescription.value = hData.eventDescription
 
@@ -281,3 +307,20 @@ const updateMyTable = async () => {
   }
 }
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+</style>

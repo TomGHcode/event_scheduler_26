@@ -8,21 +8,21 @@
       <div class="flex flex-wrap bg-gray-200/50 p-1 rounded-lg gap-1">
         <button 
           @click="viewMode = 'daily'" 
-          class="px-3 md:px-4 py-1.5 text-sm font-semibold rounded-md transition-all"
+          class="px-3 md:px-2 py-1.5 text-sm font-semibold rounded-md transition-all"
           :class="viewMode === 'daily' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
         >
           Pa Dienām
         </button>
         <button 
           @click="viewMode = 'slots'" 
-          class="px-3 md:px-4 py-1.5 text-sm font-semibold rounded-md transition-all"
+          class="px-3 md:px-2 py-1.5 text-sm font-semibold rounded-md transition-all"
           :class="viewMode === 'slots' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
         >
           Top Intervāli
         </button>
         <button 
           @click="viewMode = 'users'" 
-          class="px-3 md:px-4 py-1.5 text-sm font-semibold rounded-md transition-all"
+          class="px-3 md:px-2 py-1.5 text-sm font-semibold rounded-md transition-all"
           :class="viewMode === 'users' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
         >
           Dalībnieki
