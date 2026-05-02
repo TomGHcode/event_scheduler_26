@@ -79,7 +79,7 @@
                   <li v-for="p in heatmapData" :key="p.username" class="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded border border-gray-100">
                     <span class="w-2 h-2 rounded-full shrink-0" :class="p.intervals.length > 0 ? 'bg-green-500' : 'bg-gray-300'"></span>
                     <span class="flex-1 min-w-0 truncate cursor-help" :title="p.username">{{ p.username }}</span>
-                    <span v-if="p.role === 'Owner'" class="shrink-0 text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded border border-gray-300">Īpašnieks</span>
+                    <span v-if="p.role === 'Owner'" :title="p.role" class="shrink-0 text-xs bg-gray-200 text-gray-700 px-0.5 py-0.3 rounded border border-gray-300 cursor-help">★</span>
                     
                     <!-- Izmešanas poga -->
                     <button 
@@ -99,6 +99,7 @@
             <!-- Labā kolonna: Siltumkarte -->
             <div class="lg:col-span-3">
               <HeatmapGrid :heatmapData="heatmapData" :totalParticipants="totalParticipants" />
+              <AvailabilityGraph :heatmapData="heatmapData" :totalParticipants="totalParticipants" />
             </div>
           </div>
         </div>
@@ -111,6 +112,7 @@ import { useAuthStore } from '../stores/auth'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import HeatmapGrid from '../components/HeatmapGrid.vue'
+import AvailabilityGraph from '../components/AvailabilityGraph.vue'
 
 const route = useRoute()
 const eventId = route.params.id
