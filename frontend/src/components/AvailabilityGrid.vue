@@ -4,7 +4,7 @@
       <table class="w-full text-sm text-center border-collapse">
         <thead>
           <tr>
-            <th class="p-2 border border-gray-200 bg-gray-50 w-16">Laiks</th>
+            <th class="p-2 border border-gray-200 bg-gray-50 w-20">Laiks</th>
             <th v-for="day in days" :key="day" class="p-2 border border-gray-200 bg-gray-50 font-semibold text-gray-700">
               {{ day }}
             </th>
@@ -12,8 +12,9 @@
         </thead>
         <tbody>
           <tr v-for="hour in 24" :key="hour">
-            <td class="p-2 border border-gray-200 bg-gray-50 text-gray-500 font-medium">
-              {{ `${hour - 1}:00` }}
+            <!-- Formatējam stundu, izmantojot mūsu palīgfunkciju un store datus -->
+            <td class="p-2 border border-gray-200 bg-gray-50 text-gray-500 font-medium whitespace-nowrap">
+              {{ formatHour(hour - 1, authStore.user?.settings?.timeFormat || '24h') }}
             </td>
             <td 
               v-for="dayIndex in 7" 
@@ -24,7 +25,6 @@
               class="border border-gray-200 cursor-pointer transition-colors duration-100 select-none h-10"
               :class="getStatusColor(grid[dayIndex - 1][hour - 1])"
             >
-              <!-- Šūna bez teksta, tikai krāsa -->
             </td>
           </tr>
         </tbody>
@@ -53,6 +53,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { formatHour, localToUtc, utcToLocal } from '../utils/time'
 
 const days = ['Pr', 'Ot', 'Tr', 'Ce', 'Pk', 'Se', 'Sv']
 type Status = 'Nav pieejams' | 'Pieejams' | 'Varbut'
@@ -63,6 +65,19 @@ const grid = ref<Status[][]>(Array.from({ length: 7 }, () => Array(24).fill('Nav
 // Peles vilkšanas loģika ērtai iezīmēšanai
 const isDragging = ref(false)
 const dragStatus = ref<Status>('Pieejams')
+const authStore = useAuthStore()
+
+// Klausāmies uz eventu, lai pārveidotu stundas, ja iestatījumi mainās
+onMounted(() => {
+  window.addEventListener('mouseup', stopDrag)
+  window.addEventListener('settings-updated', forceUpdate) // Šis pārzīmēs stundas, jo formāts ir saistīts ar store
+})
+onUnmounted(() => {
+  window.removeEventListener('mouseup', stopDrag)
+  window.removeEventListener('settings-updated', forceUpdate)
+})
+
+const forceUpdate = () => { grid.value = [...grid.value] } // Ātrs hack, lai uzspiestu Vue pārzīmēt komponenti
 
 const getNextStatus = (current: Status): Status => {
   if (current === 'Nav pieejams') return 'Pieejams'
@@ -93,13 +108,11 @@ const stopDrag = () => {
   isDragging.value = false
 }
 
-// Nodrošinām, ka peles atbrīvošana ārpus tabulas apstādina vilkšanu
-onMounted(() => window.addEventListener('mouseup', stopDrag))
-onUnmounted(() => window.removeEventListener('mouseup', stopDrag))
 
-// Funkcija, ko var izsaukt vecākkomponente, lai iegūtu apstrādātus intervālus
+// --- LAIKA ZONU LOĢIKA SŪTĪŠANAI (Local -> UTC) ---
 const compileIntervals = () => {
   const intervals = []
+  const timezone = authStore.user?.timezone || 'UTC'
   
   for (let d = 0; d < 7; d++) {
     let currentStart = null
@@ -111,10 +124,14 @@ const compileIntervals = () => {
       
       if (status !== currentStatus) {
         if (currentStatus !== null && currentStatus !== 'Nav pieejams' && currentStart !== null) {
+          // Vietējās minūtes
+          const localStartMinute = d * 24 * 60 + currentStart * 60
+          const localEndMinute = d * 24 * 60 + h * 60
+          
           intervals.push({
-            start_minute: d * 24 * 60 + currentStart * 60, //
-            end_minute: d * 24 * 60 + h * 60,              //
-            status_level: currentStatus                    //
+            start_minute: localToUtc(localStartMinute, timezone),
+            end_minute: localToUtc(localEndMinute, timezone),
+            status_level: currentStatus
           })
         }
         currentStart = h
@@ -125,29 +142,48 @@ const compileIntervals = () => {
   return intervals
 }
 
-// Funkcija, kas saņem datus no datubāzes un pārvērš tos atpakaļ režģī
+// saņemam datus no datubāzes un pārvēršam tos atpakaļ režģī
+// --- LAIKA ZONU LOĢIKA IELĀDEI (UTC -> Local) ---
 const loadIntervals = (intervals: any[]) => {
-  // 1. Notīrām režģi (visu uzstādām kā "Nav pieejams")
+  const timezone = authStore.user?.timezone || 'UTC'
+
   for (let d = 0; d < 7; d++) {
     for (let h = 0; h < 24; h++) {
       grid.value[d][h] = 'Nav pieejams'
     }
   }
   
-  // 2. Aizpildām ar saņemtajiem intervāliem
   intervals.forEach(inv => {
-    // Pārvēršam minūtes atpakaļ uz stundām no nedēļas sākuma
-    const startHourTotal = inv.start_minute / 60
-    const endHourTotal = inv.end_minute / 60
+    // Pārvēršam no datubāzes UTC uz lietotāja vietējo laiku
+    const localStartMinute = utcToLocal(inv.start_minute, timezone)
+    // Beigu minūte var pārlekt pāri nedēļai, ja tā beidzas pusnaktī
+    let localEndMinute = utcToLocal(inv.end_minute, timezone)
+    if (localEndMinute === 0 && inv.end_minute !== 0) {
+        localEndMinute = 10080; // Svētdienas beigas (7 * 24 * 60)
+    }
+
+    const startHourTotal = localStartMinute / 60
+    const endHourTotal = localEndMinute / 60
     
+    // ja intervāls pēc pārrēķina šķērso pusnakti starp Svētdienu un Pirmdienu
+    if (startHourTotal > endHourTotal) {
+       // Sadalām divās daļās: līdz nedēļas beigām un no nedēļas sākuma
+       fillGrid(startHourTotal, 168, inv.status_level) // 168h nedēļā
+       fillGrid(0, endHourTotal, inv.status_level)
+    } else {
+       fillGrid(startHourTotal, endHourTotal, inv.status_level)
+    }
+  })
+}
+
+const fillGrid = (startHourTotal: number, endHourTotal: number, status: Status) => {
     for (let i = startHourTotal; i < endHourTotal; i++) {
       const d = Math.floor(i / 24)
       const h = i % 24
       if (d < 7 && h < 24) {
-        grid.value[d][h] = inv.status_level
+        grid.value[d][h] = status
       }
     }
-  })
 }
 
 // Ļaujam vecākkomponentei piekļūt šai funkcijai + loadintervals

@@ -75,13 +75,14 @@
       </div>
     </div>
 
-    <!-- 2. REŽĪMS: Top Intervāli -->
+<!-- 2. REŽĪMS: Top Intervāli -->
     <div v-else-if="viewMode === 'slots'" class="p-6 h-[280px] overflow-y-auto custom-scrollbar">
       <div v-if="processedSlots.length === 0" class="text-center text-gray-400 mt-16 font-medium">Nav atrasts neviens atbilstošs laiks.</div>
       <div v-else class="flex flex-col gap-3">
         <div v-for="(slot, i) in processedSlots" :key="i" class="flex items-center gap-3 text-sm group cursor-pointer">
           <div class="w-40 text-right font-medium text-gray-700 shrink-0">
-            {{ slot.day }}, <span class="text-gray-500">{{ slot.start }}:00 - {{ slot.end }}:00</span>
+            <!-- NOMAINĪTĀ RINDIŅA ŠEIT -->
+            {{ slot.day }}, <span class="text-gray-500">{{ formatHour(slot.startHour, authStore.user?.settings?.timeFormat || '24h') }} - {{ formatHour(slot.endHour, authStore.user?.settings?.timeFormat || '24h') }}</span>
           </div>
           <div class="flex-1 bg-blue-50 rounded-md h-8 relative flex items-center">
             <div class="bg-blue-500 hover:bg-blue-600 rounded-md h-8 transition-all duration-700 ease-out" :style="{ width: `${getBarHeight(slot.score)}%` }"></div>
@@ -126,12 +127,16 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { formatHour, utcToLocal } from '../utils/time'
+
 
 const props = defineProps<{
   heatmapData: any[];
   totalParticipants: number;
 }>()
 
+const authStore = useAuthStore()
 const days = ['Pr', 'Ot', 'Tr', 'Ce', 'Pk', 'Se', 'Sv']
 const fullDays = ['Pirmdiena', 'Otrdiena', 'Trešdiena', 'Ceturtdiena', 'Piektdiena', 'Sestdiena', 'Svētdiena']
 
@@ -147,23 +152,45 @@ const activeParticipants = computed(() => {
 })
 
 const gridData = computed(() => {
-  const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ available: 0, maybe: 0 })))
+  const grid = Array.from({ length: 7 }, () => 
+    Array.from({ length: 24 }, () => ({ available: 0, maybe: 0 }))
+  )
+
   if (!props.heatmapData) return grid;
+  const timezone = authStore.user?.timezone || 'UTC'
+
   props.heatmapData.forEach(participant => {
     if (!participant.intervals) return;
+    
     participant.intervals.forEach((inv: any) => {
-      const startHour = inv.start / 60;
-      const endHour = inv.end / 60;
-      for (let i = startHour; i < endHour; i++) {
-        const d = Math.floor(i / 24);
-        const h = i % 24;
-        if (d < 7 && h < 24) {
-          if (inv.status === 'Pieejams') grid[d][h].available += 1;
-          if (inv.status === 'Varbut') grid[d][h].maybe += 1;
-        }
+      // Pārvēršam no UTC uz Local (līdzīgi kā AvailabilityGrid)
+      const localStartMinute = utcToLocal(inv.start, timezone)
+      let localEndMinute = utcToLocal(inv.end, timezone)
+      if (localEndMinute === 0 && inv.end !== 0) localEndMinute = 10080;
+
+      const startHourTotal = localStartMinute / 60;
+      const endHourTotal = localEndMinute / 60;
+      
+      const applyScore = (start: number, end: number) => {
+         for (let i = start; i < end; i++) {
+            const d = Math.floor(i / 24);
+            const h = i % 24;
+            if (d < 7 && h < 24) {
+              if (inv.status === 'Pieejams') grid[d][h].available += 1;
+              if (inv.status === 'Varbut') grid[d][h].maybe += 1;
+            }
+          }
+      }
+
+      if (startHourTotal > endHourTotal) {
+         applyScore(startHourTotal, 168)
+         applyScore(0, endHourTotal)
+      } else {
+         applyScore(startHourTotal, endHourTotal)
       }
     })
   })
+
   return grid;
 })
 
@@ -179,7 +206,7 @@ const dailyMaxScores = computed(() => {
 })
 
 const processedSlots = computed(() => {
-  const slots: { day: string, start: string, end: string, score: number }[] = [];
+  const slots: { day: string, startHour: number, endHour: number, score: number }[] = [];
   for (let d = 0; d < 7; d++) {
     let currentStart: number | null = null;
     let currentScore = 0;
@@ -188,7 +215,12 @@ const processedSlots = computed(() => {
       if (h < 24) score = gridData.value[d][h].available + (includeMaybe.value ? gridData.value[d][h].maybe * 0.5 : 0);
       if (score !== currentScore) {
         if (currentScore > 0 && currentStart !== null) {
-          slots.push({ day: fullDays[d], start: currentStart.toString().padStart(2, '0'), end: h.toString().padStart(2, '0'), score: currentScore });
+          slots.push({ 
+            day: fullDays[d], 
+            startHour: currentStart, 
+            endHour: h, 
+            score: currentScore 
+          });
         }
         currentStart = h;
         currentScore = score;

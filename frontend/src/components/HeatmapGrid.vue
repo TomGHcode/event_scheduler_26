@@ -32,8 +32,9 @@
         </thead>
         <tbody>
           <tr v-for="hour in 24" :key="hour">
-            <td class="p-2 border border-gray-200 bg-gray-50 text-gray-500 font-medium">
-              {{ `${hour - 1}:00` }}
+            <td class="p-2 border border-gray-200 bg-gray-50 text-gray-500 font-medium whitespace-nowrap">
+              <!-- formatHour no util -->
+              {{ formatHour(hour - 1, authStore.user?.settings?.timeFormat || '24h') }}
             </td>
             <td 
               v-for="dayIndex in 7" 
@@ -43,7 +44,7 @@
             >
               <!-- Info lodziņš (Tooltip) -->
               <div class="hidden group-hover:block absolute z-20 bg-gray-800 text-white text-xs p-3 rounded shadow-xl -mt-16 left-1/2 transform -translate-x-1/2 whitespace-nowrap pointer-events-none">
-                <div class="font-bold border-b border-gray-600 pb-1 mb-1">{{ days[dayIndex - 1] }} {{ hour - 1 }}:00 - {{ hour }}:00</div>
+                <div class="font-bold border-b border-gray-600 pb-1 mb-1">{{ days[dayIndex - 1] }} {{ formatHour(hour - 1, authStore.user?.settings?.timeFormat || '24h') }} - {{ formatHour(hour, authStore.user?.settings?.timeFormat || '24h') }}</div>
                 <div class="flex items-center gap-2 text-green-400">
                   <span class="w-2 h-2 rounded-full bg-green-400"></span>
                   Pieejami: {{ getCellData(dayIndex - 1, hour - 1).available }} / {{ activeParticipants }}
@@ -72,12 +73,15 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { formatHour, utcToLocal } from '../utils/time'
 
 const props = defineProps<{
   heatmapData: any[];
   totalParticipants: number;
 }>()
 
+const authStore = useAuthStore()
 const days = ['Pr', 'Ot', 'Tr', 'Ce', 'Pk', 'Se', 'Sv']
 const includeMaybe = ref(true) // Pēc noklusējuma rādām arī "Varbūt"
 
@@ -94,21 +98,36 @@ const gridData = computed(() => {
   )
 
   if (!props.heatmapData) return grid;
+  const timezone = authStore.user?.timezone || 'UTC'
 
   props.heatmapData.forEach(participant => {
     if (!participant.intervals) return;
     
     participant.intervals.forEach((inv: any) => {
-      const startHour = inv.start / 60;
-      const endHour = inv.end / 60;
+      // Pārvēršam no UTC uz Local (līdzīgi kā AvailabilityGrid)
+      const localStartMinute = utcToLocal(inv.start, timezone)
+      let localEndMinute = utcToLocal(inv.end, timezone)
+      if (localEndMinute === 0 && inv.end !== 0) localEndMinute = 10080;
+
+      const startHourTotal = localStartMinute / 60;
+      const endHourTotal = localEndMinute / 60;
       
-      for (let i = startHour; i < endHour; i++) {
-        const d = Math.floor(i / 24);
-        const h = i % 24;
-        if (d < 7 && h < 24) {
-          if (inv.status === 'Pieejams') grid[d][h].available += 1;
-          if (inv.status === 'Varbut') grid[d][h].maybe += 1;
-        }
+      const applyScore = (start: number, end: number) => {
+         for (let i = start; i < end; i++) {
+            const d = Math.floor(i / 24);
+            const h = i % 24;
+            if (d < 7 && h < 24) {
+              if (inv.status === 'Pieejams') grid[d][h].available += 1;
+              if (inv.status === 'Varbut') grid[d][h].maybe += 1;
+            }
+          }
+      }
+
+      if (startHourTotal > endHourTotal) {
+         applyScore(startHourTotal, 168)
+         applyScore(0, endHourTotal)
+      } else {
+         applyScore(startHourTotal, endHourTotal)
       }
     })
   })

@@ -6,7 +6,7 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { db } from '../db';
 
-// Zod validācijas shēma (atbilstoši specifikācijai) [cite: 11]
+// Zod validācijas shēma
 const UserAuthSchema = z.object({
   username: z.string().min(3, "Lietotājvārdam jābūt vismaz 3 simbolus garam"),
   password: z.string().min(6, "Parolei jābūt vismaz 6 simbolus garai"),
@@ -15,7 +15,7 @@ const UserAuthSchema = z.object({
 export default async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/register', async (request, reply) => {
     try {
-      // 1. Validējam ienākošos datus ar Zod [cite: 11]
+      // 1. Validējam ienākošos datus ar Zod
       const parsedBody = UserAuthSchema.safeParse(request.body);
       if (!parsedBody.success) {
         return reply.status(400).send({ 
@@ -40,13 +40,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const saltRounds = 10;
       const password_hash = await bcrypt.hash(password, saltRounds);
 
-      // 4. Saglabājam lietotāju tabulā (Kysely Type-Safe SQL) [cite: 8]
+      // 4. Saglabājam lietotāju tabulā (Kysely Type-Safe SQL)
       const newUser = await db.insertInto('users')
         .values({
           username,
           password_hash,
-          role: 'User', // Atbilstoši specifikācijas lomām [cite: 27]
-          timezone: 'UTC', // Noklusējuma laika zona [cite: 40]
+          role: 'User', // Atbilstoši specifikācijas lomām
+          timezone: 'UTC', // Noklusējuma laika zona
           settings_json: JSON.stringify({}),
         })
         .returning(['id', 'username', 'role', 'timezone']) // Drošības nolūkos atgriežam datus BEZ paroles
@@ -62,6 +62,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Iekšēja servera kļūda' });
     }
   });
+  
   fastify.post('/login', async (request, reply) => {
     try {
       // 1. Validējam datus ar to pašu Zod shēmu
@@ -112,15 +113,46 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Iekšēja servera kļūda' });
     }
   });
+  
   // Aizsargāts maršruts - prasa autorizāciju
   fastify.get('/me', { preHandler: [authenticate] }, async (request, reply) => {
-    // Ja mēs nokļūstam šeit, authenticate middleware ir veiksmīgi izgājis
-    // un request.user eksistē!
-    const user = request.user;
+    // Iegūstam svaigākos datus no datubāzes, ieskaitot iestatījumus
+    const user = await db.selectFrom('users')
+      .select(['id', 'username', 'role', 'timezone', 'settings_json'])
+      .where('id', '=', request.user!.userId)
+      .executeTakeFirst();
+
+    if (!user) {
+      return reply.status(404).send({ error: 'Lietotājs nav atrasts' });
+    }
     
-    return reply.status(200).send({ 
-      message: 'Jums ir piekļuve šim aizsargātajam maršrutam!',
-      currentUser: user 
+	return reply.status(200).send({ 
+      currentUser: {
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        timezone: user.timezone,
+        settings: user.settings_json // { timeFormat: '24h' vai '12h' }
+      } 
     });
+  });
+	
+  // Lietotāja iestatījumu saglabāšana
+  fastify.put('/settings', { preHandler: [authenticate] }, async (request, reply) => {
+    try {
+      const { timezone, timeFormat } = request.body as any; // (vēlāk jāpievieno Zod validācija)
+      
+      const settings_json = JSON.stringify({ timeFormat: timeFormat || '24h' });
+
+      await db.updateTable('users')
+        .set({ timezone: timezone || 'UTC', settings_json })
+        .where('id', '=', request.user!.userId)
+        .execute();
+
+      return reply.status(200).send({ message: 'Iestatījumi saglabāti' });
+    } catch (error) {
+      request.server.log.error(error);
+      return reply.status(500).send({ error: 'Neizdevās saglabāt iestatījumus' });
+    }
   });
 }

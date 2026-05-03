@@ -19,6 +19,11 @@
           />
         </div>
 
+        <div class="mb-4 flex justify-end">
+          <!-- Rādām tikai formātu -->
+          <TimeSettings :showFormat="true" :showTimezone="false" />
+        </div>
+
         <AvailabilityGrid ref="gridRef" />
 
         <div v-if="errorMsg" class="mt-4 text-red-500 text-sm">{{ errorMsg }}</div>
@@ -49,6 +54,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import TimeSettings from '../components/TimeSettings.vue'
 import AvailabilityGrid from '../components/AvailabilityGrid.vue'
 
 const router = useRouter()

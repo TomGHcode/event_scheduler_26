@@ -1,15 +1,16 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-100">
     <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-      <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">Pieslēgties</h2>
+      <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">Reģistrēties</h2>
       
-      <form @submit.prevent="handleLogin" class="space-y-4">
+      <form @submit.prevent="handleRegister" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700">Lietotājvārds</label>
           <input 
             v-model="username" 
             type="text" 
             required 
+            minlength="3"
             class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
@@ -20,6 +21,7 @@
             v-model="password" 
             type="password" 
             required 
+            minlength="6"
             class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
@@ -30,15 +32,16 @@
 
         <button 
           type="submit" 
-          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200"
+          :disabled="isSubmitting"
+          class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50"
         >
-          Ienākt
+          {{ isSubmitting ? 'Reģistrējas...' : 'Izveidot kontu' }}
         </button>
       </form>
-      <!-- Reģistrācijas links -->
+
       <div class="mt-4 text-center text-sm text-gray-600">
-        Nav konta? 
-        <router-link to="/register" class="text-blue-600 hover:underline font-semibold">Reģistrējies šeit</router-link>
+        Jau ir konts? 
+        <router-link to="/login" class="text-blue-600 hover:underline font-semibold">Pieslēgties šeit</router-link>
       </div>
     </div>
   </div>
@@ -51,13 +54,15 @@ import { useAuthStore } from '../stores/auth'
 
 const username = ref('')
 const password = ref('')
+const isSubmitting = ref(false)
 const authStore = useAuthStore()
 const router = useRouter()
 
-const handleLogin = async () => {
-  const success = await authStore.login(username.value, password.value)
+const handleRegister = async () => {
+  isSubmitting.value = true
+  const success = await authStore.register(username.value, password.value)
+  isSubmitting.value = false
   if (success) {
-    // Ja veiksmīgi, pārvirzām uz sākumlapu vai paneļa skatu
     router.push('/')
   }
 }

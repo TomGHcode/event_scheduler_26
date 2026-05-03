@@ -124,6 +124,7 @@
 
             <!-- Labā kolonna: Siltumkarte -->
             <div class="lg:col-span-3">
+             <TimeSettings :showFormat="true" :showTimezone="true" />
               <HeatmapGrid :heatmapData="heatmapData" :totalParticipants="totalParticipants" />
               <AvailabilityGraph :heatmapData="heatmapData" :totalParticipants="totalParticipants" />
             </div>
@@ -137,6 +138,7 @@
 import { useAuthStore } from '../stores/auth'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import TimeSettings from '../components/TimeSettings.vue'
 import HeatmapGrid from '../components/HeatmapGrid.vue'
 import AvailabilityGraph from '../components/AvailabilityGraph.vue'
 

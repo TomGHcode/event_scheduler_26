@@ -1,3 +1,4 @@
+import RegisterView from './views/RegisterView.vue'
 import EventView from './views/EventView.vue'
 import EditTableView from './views/EditTableView.vue'
 import CreateTableView from './views/CreateTableView.vue'
@@ -15,6 +16,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/login', component: LoginView },
+	{ path: '/register', component: RegisterView },
     { path: '/', component: DashboardView },
 	{ path: '/create-table', component: CreateTableView },
 	{ path: '/edit-table/:id', component: EditTableView },
