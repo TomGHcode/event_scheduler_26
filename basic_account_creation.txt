@@ -3,6 +3,9 @@ Account creation for basic tests
 
 Probably need to run migration scripts found in /backend/src/migrate.ts, then register new users trough powershell
 
+docker compose exec backend node dist/migrate.js
+
+
 -- Windows Powershell --
 
 Account creation:
