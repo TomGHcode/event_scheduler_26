@@ -81,8 +81,11 @@
       <div v-else class="flex flex-col gap-3">
         <div v-for="(slot, i) in processedSlots" :key="i" class="flex items-center gap-3 text-sm group cursor-pointer">
           <div class="w-40 text-right font-medium text-gray-700 shrink-0">
-            <!-- NOMAINĪTĀ RINDIŅA ŠEIT -->
-            {{ slot.day }}, <span class="text-gray-500">{{ formatHour(slot.startHour, authStore.user?.settings?.timeFormat || '24h') }} - {{ formatHour(slot.endHour, authStore.user?.settings?.timeFormat || '24h') }}</span>
+            {{ slot.day }}, 
+            <span class="text-gray-500">
+              {{ formatHour(slot.start, authStore.user?.settings?.timeFormat || '24h') }} - 
+              {{ formatHour(slot.end, authStore.user?.settings?.timeFormat || '24h') }}
+            </span>
           </div>
           <div class="flex-1 bg-blue-50 rounded-md h-8 relative flex items-center">
             <div class="bg-blue-500 hover:bg-blue-600 rounded-md h-8 transition-all duration-700 ease-out" :style="{ width: `${getBarHeight(slot.score)}%` }"></div>
@@ -152,18 +155,16 @@ const activeParticipants = computed(() => {
 })
 
 const gridData = computed(() => {
-  const grid = Array.from({ length: 7 }, () => 
-    Array.from({ length: 24 }, () => ({ available: 0, maybe: 0 }))
-  )
-
+  const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ available: 0, maybe: 0 })))
   if (!props.heatmapData) return grid;
+  
+  // Reaktīvs laika zonas mainīgais
   const timezone = authStore.user?.timezone || 'UTC'
 
   props.heatmapData.forEach(participant => {
     if (!participant.intervals) return;
-    
     participant.intervals.forEach((inv: any) => {
-      // Pārvēršam no UTC uz Local (līdzīgi kā AvailabilityGrid)
+      // 1. Pārvēršam intervālu no UTC uz Local
       const localStartMinute = utcToLocal(inv.start, timezone)
       let localEndMinute = utcToLocal(inv.end, timezone)
       if (localEndMinute === 0 && inv.end !== 0) localEndMinute = 10080;
@@ -182,6 +183,7 @@ const gridData = computed(() => {
           }
       }
 
+      // 2. Apstrādājam pāreju pāri pusnaktij
       if (startHourTotal > endHourTotal) {
          applyScore(startHourTotal, 168)
          applyScore(0, endHourTotal)
@@ -190,7 +192,6 @@ const gridData = computed(() => {
       }
     })
   })
-
   return grid;
 })
 
@@ -206,7 +207,7 @@ const dailyMaxScores = computed(() => {
 })
 
 const processedSlots = computed(() => {
-  const slots: { day: string, startHour: number, endHour: number, score: number }[] = [];
+  const slots: { day: string, start: number, end: number, score: number }[] = [];
   for (let d = 0; d < 7; d++) {
     let currentStart: number | null = null;
     let currentScore = 0;
@@ -217,8 +218,8 @@ const processedSlots = computed(() => {
         if (currentScore > 0 && currentStart !== null) {
           slots.push({ 
             day: fullDays[d], 
-            startHour: currentStart, 
-            endHour: h, 
+            start: currentStart, 
+            end: h, 
             score: currentScore 
           });
         }

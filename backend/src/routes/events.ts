@@ -10,7 +10,7 @@ import { WebSocket } from 'ws';
 const eventConnections = new Map<number, Set<WebSocket>>();
 
 // Palīgfunkcija, kas nosūta ziņu visiem viena pasākuma skatītājiem
-function broadcastEventUpdate(eventId: number) {
+export function broadcastEventUpdate(eventId: number) {
   const connections = eventConnections.get(eventId);
   if (connections) {
     connections.forEach(client => {

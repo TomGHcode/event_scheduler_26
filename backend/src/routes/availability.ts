@@ -1,3 +1,4 @@
+import { broadcastEventUpdate } from './events';
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db';
@@ -178,6 +179,18 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
           }));
           await trx.insertInto('intervals').values(intervalsToInsert).execute();
         }
+      });
+	  
+	  // Atrodam visus pasākumus, kuros šī tabula ir piesaistīta
+	  const affectedEvents = await db.selectFrom('event_participants')
+        .select('event_table_id')
+        .where('availability_table_id', '=', tableId)
+        .distinct() // Izvairāmies no dublikātiem
+        .execute();
+
+      // Izsūtām WebSocket signālu katram no šiem pasākumiem
+      affectedEvents.forEach(ev => {
+        broadcastEventUpdate(ev.event_table_id);
       });
 
       return reply.status(200).send({ message: 'Tabula veiksmīgi atjaunināta!' });

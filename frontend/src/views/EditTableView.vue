@@ -21,7 +21,7 @@
 
         <div class="mb-4 flex justify-end">
           <!-- Rādām tikai formātu -->
-          <TimeSettings :showFormat="true" :showTimezone="false" />
+          <TimeSettings :showFormat="true" :showTimezone="true" />
         </div>
 
         <AvailabilityGrid ref="gridRef" />
@@ -52,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAuthStore } from '../stores/auth'
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import TimeSettings from '../components/TimeSettings.vue'
@@ -60,6 +61,7 @@ import AvailabilityGrid from '../components/AvailabilityGrid.vue'
 const router = useRouter()
 const route = useRoute()
 const tableId = route.params.id
+const authStore = useAuthStore()
 
 const tableName = ref('')
 const gridRef = ref<InstanceType<typeof AvailabilityGrid> | null>(null)
@@ -69,6 +71,11 @@ const errorMsg = ref('')
 
 onMounted(async () => {
   try {
+    const isAuthenticated = await authStore.checkAuth()
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
     const response = await fetch(`/api/availability/${tableId}`)
     if (response.ok) {
       const data = await response.json()
@@ -92,8 +99,15 @@ const updateTable = async () => {
     errorMsg.value = 'Lūdzu ievadiet tabulas nosaukumu!'
     return
   }
-  isSaving.value = true
+  
   const intervals = gridRef.value?.compileIntervals() || []
+
+  if (intervals.length > 42) {
+    errorMsg.value = `Pārāk daudz intervālu (${intervals.length}/42). Lūdzu, apvienojiet laikus, lai mazinātu sadrumstalotību.`
+    return
+  }
+
+  isSaving.value = true
 
   try {
     const response = await fetch(`/api/availability/${tableId}`, {

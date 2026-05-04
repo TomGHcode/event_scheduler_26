@@ -291,8 +291,8 @@ const leaveEvent = async (id: number) => {
 }
 
 
-const logout = () => {
-  authStore.user = null
+const logout = async () => {
+  await authStore.logout()
   router.push('/login')
 }
 </script>

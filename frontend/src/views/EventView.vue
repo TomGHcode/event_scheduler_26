@@ -138,11 +138,13 @@
 import { useAuthStore } from '../stores/auth'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import TimeSettings from '../components/TimeSettings.vue'
 import HeatmapGrid from '../components/HeatmapGrid.vue'
 import AvailabilityGraph from '../components/AvailabilityGraph.vue'
 
 const route = useRoute()
+const router = useRouter()
 const eventId = route.params.id
 const authStore = useAuthStore()
 const myUserId = authStore.user?.userId
@@ -172,6 +174,13 @@ const isParticipantsExpanded = ref(false)
 let ws: WebSocket | null = null;
 
 onMounted(async () => {
+  // pārbaudam auth pārbaudi pirms lādējam datus
+  const isAuthenticated = await authStore.checkAuth()
+  if (!isAuthenticated) {
+    router.push('/login')
+    return
+  }
+  
   await loadEventData()
   connectWebSocket()
 })

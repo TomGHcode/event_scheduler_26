@@ -20,7 +20,7 @@
 
         <div class="mb-4 flex justify-end">
           <!-- Rādām tikai formātu -->
-          <TimeSettings :showFormat="true" :showTimezone="false" />
+          <TimeSettings :showFormat="true" :showTimezone="true" />
         </div>
 
         <!-- Pieejamības režģis -->
@@ -45,7 +45,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
 import TimeSettings from '../components/TimeSettings.vue'
 import AvailabilityGrid from '../components/AvailabilityGrid.vue'
@@ -55,6 +56,7 @@ const tableName = ref('')
 const gridRef = ref<InstanceType<typeof AvailabilityGrid> | null>(null)
 const isSaving = ref(false)
 const errorMsg = ref('')
+const authStore = useAuthStore()
 
 const saveTable = async () => {
   if (!tableName.value) {
@@ -62,11 +64,16 @@ const saveTable = async () => {
     return
   }
 
+  // Iegūstam sapludinātos intervālus no bērna komponentes
+  const intervals = gridRef.value?.compileIntervals() || []
+
+  if (intervals.length > 42) {
+    errorMsg.value = `Pārāk daudz intervālu (${intervals.length}/42). Lūdzu, apvienojiet laikus, lai mazinātu sadrumstalotību.`
+    return
+  }
+
   isSaving.value = true
   errorMsg.value = ''
-
-  // Izsaucam funkciju no bērna komponentes, kas apvieno intervālus
-  const intervals = gridRef.value?.compileIntervals() || []
 
   try {
     const response = await fetch('/api/availability', {
@@ -91,4 +98,11 @@ const saveTable = async () => {
     isSaving.value = false
   }
 }
+
+onMounted(async () => {
+  const isAuthenticated = await authStore.checkAuth()
+  if (!isAuthenticated) {
+    router.push('/login')
+  }
+})
 </script>

@@ -111,27 +111,24 @@ const stopDrag = () => {
 
 // --- LAIKA ZONU LOĢIKA SŪTĪŠANAI (Local -> UTC) ---
 const compileIntervals = () => {
-  const intervals = []
   const timezone = authStore.user?.timezone || 'UTC'
+  
+  // 1. Iegūstam visus "jēlos" (raw) intervālus lokālajā laikā pa stundām
+  const rawIntervals: { start: number, end: number, status: Status }[] = []
   
   for (let d = 0; d < 7; d++) {
     let currentStart = null
     let currentStatus = null
     
-    // Ejam cauri visām stundām dienā, +1 papildus solis, lai "aizvērtu" pēdējo intervālu dienas beigās
     for (let h = 0; h <= 24; h++) {
       const status = h < 24 ? grid.value[d][h] : 'Nav pieejams'
       
       if (status !== currentStatus) {
         if (currentStatus !== null && currentStatus !== 'Nav pieejams' && currentStart !== null) {
-          // Vietējās minūtes
-          const localStartMinute = d * 24 * 60 + currentStart * 60
-          const localEndMinute = d * 24 * 60 + h * 60
-          
-          intervals.push({
-            start_minute: localToUtc(localStartMinute, timezone),
-            end_minute: localToUtc(localEndMinute, timezone),
-            status_level: currentStatus
+          rawIntervals.push({
+            start: d * 24 * 60 + currentStart * 60,
+            end: d * 24 * 60 + h * 60,
+            status: currentStatus
           })
         }
         currentStart = h
@@ -139,7 +136,41 @@ const compileIntervals = () => {
       }
     }
   }
-  return intervals
+
+  // 2. Sapludinām (merge) blakus esošos intervālus ar vienādu statusu
+  if (rawIntervals.length === 0) return []
+  
+  const mergedIntervals = [rawIntervals[0]]
+  for (let i = 1; i < rawIntervals.length; i++) {
+    const last = mergedIntervals[mergedIntervals.length - 1]
+    const current = rawIntervals[i]
+    
+    // Ja iepriekšējais beidzas turpat, kur sākas jaunais, UN tiem ir vienāds statuss
+    if (last.end === current.start && last.status === current.status) {
+      last.end = current.end // Sapludinām vienā lielā blokā!
+    } else {
+      mergedIntervals.push(current)
+    }
+  }
+
+  // 3. Pārbaudām nedēļas robežu (Ja Svētdienas beigas savienojas ar Pirmdienas sākumu)
+  if (mergedIntervals.length > 1) {
+    const first = mergedIntervals[0]
+    const last = mergedIntervals[mergedIntervals.length - 1]
+    
+    // 10080 ir nedēļas beigas (7 * 24 * 60)
+    if (last.end === 10080 && first.start === 0 && last.status === first.status) {
+      last.end = first.end // Šis radīs intervālu, kur start_minute > end_minute (specifikācija to atbalsta)
+      mergedIntervals.shift() // Izdzēšam pirmo, jo tas ir pievienots pēdējam
+    }
+  }
+
+  // 4. Konvertējam apstrādātos intervālus uz UTC un atgriežam backendam
+  return mergedIntervals.map(inv => ({
+    start_minute: localToUtc(inv.start, timezone),
+    end_minute: localToUtc(inv.end, timezone),
+    status_level: inv.status
+  }))
 }
 
 // saņemam datus no datubāzes un pārvēršam tos atpakaļ režģī

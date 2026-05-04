@@ -99,8 +99,13 @@ export const useAuthStore = defineStore('auth', () => {
         body: JSON.stringify({ timezone, timeFormat }),
       })
       if (response.ok) {
-        user.value.timezone = timezone;
-        user.value.settings.timeFormat = timeFormat;
+        // pārrakstām visu user objektu izveidojot jaunu kopiju,
+        // piespiežot visus `computed` (Heatmap/Graph) nekavējoties pārrēķināties.
+        user.value = {
+          ...user.value,
+          timezone: timezone,
+          settings: { ...user.value.settings, timeFormat: timeFormat }
+        };
         return true;
       }
       return false;
@@ -109,5 +114,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, error, login, register, checkAuth, updateSettings }
+  // Izrakstīšanās
+  const logout = async () => {
+    try {
+      // Izsaucam backend, lai iznīcinātu sesiju un sīkdatni
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (e) {
+      console.error('Kļūda izrakstoties:', e)
+    } finally {
+      // Notīram lokālo stāvokli
+      user.value = null
+    }
+  }
+
+  return { user, error, login, register, checkAuth, updateSettings, logout }
 })

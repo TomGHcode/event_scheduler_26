@@ -114,6 +114,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   });
   
+  fastify.post('/logout', async (request, reply) => {
+    try {
+      const sessionId = request.cookies.sessionId;
+      
+      if (sessionId) {
+        // 1. Izdzēšam sesiju no Redis
+        await redis.del(`session:${sessionId}`);
+        
+        // 2. Iztīram sīkdatni no lietotāja pārlūka
+        reply.clearCookie('sessionId', { path: '/' });
+      }
+
+      return reply.status(200).send({ message: 'Veiksmīgi iziets no sistēmas' });
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Iekšēja servera kļūda' });
+    }
+  });
+  
   // Aizsargāts maršruts - prasa autorizāciju
   fastify.get('/me', { preHandler: [authenticate] }, async (request, reply) => {
     // Iegūstam svaigākos datus no datubāzes, ieskaitot iestatījumus
