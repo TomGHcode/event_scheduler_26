@@ -42,6 +42,19 @@ const JoinEventSchema = z.object({
   is_private: z.boolean().default(false),
 });
 
+// Shēmas event table pasākumiem (Plānotie Pasākumi)
+const PlannedEventSchema = z.object({
+  title: z.string().min(1, "Nosaukums ir obligāts").max(50, "Maksimums 50 simboli"),
+  description: z.string().max(370, "Maksimums 370 simboli").optional(),
+  start_time: z.coerce.date(), 
+  end_time: z.coerce.date(),
+});
+
+const UpdateRoleSchema = z.object({
+  new_role: z.enum(['Helper', 'User']),
+});
+
+
 export default async function eventRoutes(fastify: FastifyInstance) {
   // Aizsargājam visus notikumu maršrutus
   fastify.addHook('preHandler', authenticate);
@@ -390,23 +403,46 @@ export default async function eventRoutes(fastify: FastifyInstance) {
       const targetId = parseInt((request.params as any).targetId as string, 10);
       const userId = request.user!.userId;
 
-      // Ja mēģina izmest citu, pārbaudām vai ir Owner
+      // Iegūstam manu lomu
+      const myMembership = await db.selectFrom('event_participants')
+        .select('role_type')
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+
+      if (!myMembership) return reply.status(403).send({ error: 'Nav piekļuves' });
+
+      // Ja mēģina izmest citu cilvēku
       if (userId !== targetId) {
-        const myMembership = await db.selectFrom('event_participants')
+        if (myMembership.role_type !== 'Owner' && myMembership.role_type !== 'Helper') {
+          return reply.status(403).send({ error: 'Tikai īpašnieks vai palīgs var izmest dalībniekus' });
+        }
+
+        // Iegūstam mērķa lomu, lai neļautu Helperim izmest Owneri vai citu Helperi
+        const targetMembership = await db.selectFrom('event_participants')
           .select('role_type')
           .where('event_table_id', '=', eventId)
-          .where('user_id', '=', userId)
+          .where('user_id', '=', targetId)
           .executeTakeFirst();
 
-        if (!myMembership || myMembership.role_type !== 'Owner') return reply.status(403).send({ error: 'Nav tiesību izmest' });
+        if (targetMembership) {
+          if (myMembership.role_type === 'Helper' && (targetMembership.role_type === 'Owner' || targetMembership.role_type === 'Helper')) {
+            return reply.status(403).send({ error: 'Palīgs nevar izmest īpašnieku vai citu palīgu' });
+          }
+        }
       } else {
-        // Neļaujam Ownerim pamest pasākumu, viņam tas jādzēš
-        const myMembership = await db.selectFrom('event_participants').select('role_type').where('event_table_id', '=', eventId).where('user_id', '=', userId).executeTakeFirst();
-        if (myMembership?.role_type === 'Owner') return reply.status(400).send({ error: 'Īpašnieks nevar pamest pasākumu, tas ir jādzēst' });
+        // Lietotājs pamet pats
+        if (myMembership.role_type === 'Owner') {
+          return reply.status(400).send({ error: 'Īpašnieks nevar pamest pasākumu, tas ir jādzēš' });
+        }
       }
 
-      await db.deleteFrom('event_participants').where('event_table_id', '=', eventId).where('user_id', '=', targetId).execute();
-      broadcastEventUpdate(eventId); // Atjauninām visiem
+      await db.deleteFrom('event_participants')
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', targetId)
+        .execute();
+        
+      broadcastEventUpdate(eventId);
       return reply.status(200).send({ message: 'Dalībnieks noņemts' });
     } catch (error) {
       return reply.status(500).send({ error: 'Neizdevās noņemt dalībnieku' });
@@ -446,6 +482,125 @@ export default async function eventRoutes(fastify: FastifyInstance) {
       return reply.status(200).send({ message: 'Pasākums veiksmīgi atjaunināts' });
     } catch (error) {
       return reply.status(500).send({ error: 'Neizdevās atjaunināt pasākumu' });
+    }
+  });
+
+  // 10. Mainīt dalībnieka lomu (Tikai Owner var iedot Helper)
+  fastify.patch('/:id/participants/:targetId/role', async (request, reply) => {
+    try {
+      const eventId = parseInt((request.params as any).id as string, 10);
+      const targetId = parseInt((request.params as any).targetId as string, 10);
+      const userId = request.user!.userId;
+
+      const parsedBody = UpdateRoleSchema.safeParse(request.body);
+      if (!parsedBody.success) return reply.status(400).send({ error: 'Nekorekti dati' });
+
+      // Pārbaudām, vai pieprasītājs ir Owner
+      const myMembership = await db.selectFrom('event_participants')
+        .select('role_type')
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+
+      if (!myMembership || myMembership.role_type !== 'Owner') {
+        return reply.status(403).send({ error: 'Tikai īpašnieks var mainīt lomas' });
+      }
+
+      await db.updateTable('event_participants')
+        .set({ role_type: parsedBody.data.new_role })
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', targetId)
+        .execute();
+
+      broadcastEventUpdate(eventId);
+      return reply.status(200).send({ message: 'Loma veiksmīgi nomainīta' });
+    } catch (error) {
+      return reply.status(500).send({ error: 'Neizdevās nomainīt lomu' });
+    }
+  });
+
+  // 11. Iegūt plānotos pasākumus (Visiem dalībniekiem)
+  fastify.get('/:id/planned-events', async (request, reply) => {
+    try {
+      const eventId = parseInt((request.params as any).id as string, 10);
+      
+      const plannedEvents = await db.selectFrom('planned_events')
+        .selectAll()
+        .where('event_table_id', '=', eventId)
+        .orderBy('start_time', 'asc')
+        .execute();
+
+      return reply.status(200).send({ plannedEvents });
+    } catch (error) {
+      return reply.status(500).send({ error: 'Neizdevās iegūt plānotos pasākumus' });
+    }
+  });
+
+  // 12. Pievienot jaunu plānoto pasākumu (Tikai Owner / Helper)
+  fastify.post('/:id/planned-events', async (request, reply) => {
+    try {
+      const eventId = parseInt((request.params as any).id as string, 10);
+      const userId = request.user!.userId;
+
+      const parsedBody = PlannedEventSchema.safeParse(request.body);
+      if (!parsedBody.success) return reply.status(400).send({ error: 'Nekorekti dati', details: parsedBody.error.format() });
+
+      const myMembership = await db.selectFrom('event_participants')
+        .select('role_type')
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+
+      if (!myMembership || (myMembership.role_type !== 'Owner' && myMembership.role_type !== 'Helper')) {
+        return reply.status(403).send({ error: 'Tikai Īpašnieks vai Palīgs var pievienot pasākumus' });
+      }
+
+      await db.insertInto('planned_events')
+        .values({
+          event_table_id: eventId,
+          start_time: parsedBody.data.start_time, // Zod to jau konvertēja!
+          end_time: parsedBody.data.end_time,
+          metadata: JSON.stringify({
+            title: parsedBody.data.title,
+            description: parsedBody.data.description || null
+          })
+        })
+        .execute();
+
+      broadcastEventUpdate(eventId); // Atjauninām visiem ekrānus
+      return reply.status(201).send({ message: 'Pasākums veiksmīgi pievienots' });
+    } catch (error) {
+      request.server.log.error(error);
+      return reply.status(500).send({ error: 'Neizdevās izveidot pasākumu' });
+    }
+  });
+
+  // 13. Dzēst plānoto pasākumu (Tikai Owner / Helper)
+  fastify.delete('/:id/planned-events/:plannedId', async (request, reply) => {
+    try {
+      const eventId = parseInt((request.params as any).id as string, 10);
+      const plannedId = parseInt((request.params as any).plannedId as string, 10);
+      const userId = request.user!.userId;
+
+      const myMembership = await db.selectFrom('event_participants')
+        .select('role_type')
+        .where('event_table_id', '=', eventId)
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+
+      if (!myMembership || (myMembership.role_type !== 'Owner' && myMembership.role_type !== 'Helper')) {
+        return reply.status(403).send({ error: 'Nav atļaujas' });
+      }
+
+      await db.deleteFrom('planned_events')
+        .where('id', '=', plannedId)
+        .where('event_table_id', '=', eventId)
+        .execute();
+
+      broadcastEventUpdate(eventId);
+      return reply.status(200).send({ message: 'Pasākums dzēsts' });
+    } catch (error) {
+      return reply.status(500).send({ error: 'Neizdevās dzēst' });
     }
   });
 }

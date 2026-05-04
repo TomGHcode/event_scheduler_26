@@ -27,7 +27,7 @@
       <div v-else-if="errorMsg" class="text-center py-10 text-red-500">{{ errorMsg }}</div>
         <div v-else class="space-y-6">
           
-          <!-- JAUNS: Pasākuma Apraksts (Tagad pilnā platumā augšpusē) -->
+          <!-- Pasākuma Apraksts -->
           <div v-if="eventDescription || isEditingEvent" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 class="font-bold text-lg text-gray-800 mb-2">Apraksts</h3>
             
@@ -54,7 +54,7 @@
             <div class="lg:col-span-1 space-y-6">
               
               <!-- Mana tabula -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
+              <div class="bg-white p-4 rounded-2xl shadow-sm border border-blue-100">
                 <h3 class="font-bold text-lg text-blue-800 mb-4">Mana Tabula</h3>
                 <div class="mb-4">
                   <select v-model="selectedTableId" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 text-sm">
@@ -73,7 +73,7 @@
               </div>
 
               <!-- Dalībnieku saraksts -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+              <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
                 <div class="flex justify-between items-center mb-4">
                   <h3 class="font-bold text-lg text-gray-800">Dalībnieki <span class="text-gray-500 text-sm font-normal">({{ heatmapData.length }})</span></h3>
                 </div>
@@ -90,20 +90,32 @@
                   >
                     <span class="w-2 h-2 rounded-full shrink-0" :class="p.intervals.length > 0 ? 'bg-green-500' : 'bg-gray-300'"></span>
                     <span class="flex-1 min-w-0 truncate cursor-help" :title="p.username">{{ p.username }}</span>
-                    <span v-if="p.role === 'Owner'" :title="p.role" class="shrink-0 text-[10px] bg-gray-200 text-gray-700 px-1 py-0.5 rounded border border-gray-300 cursor-help flex items-center justify-center leading-none">★</span>
+                    <span v-if="p.role === 'Owner'" title="Īpašnieks" class="shrink-0 text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded border border-gray-300 flex items-center justify-center leading-none">★</span>
+                    <span v-if="p.role === 'Helper'" title="Palīgs" class="shrink-0 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-200 flex items-center justify-center leading-none">H</span>
                     
-                    <!-- Izmešanas poga -->
-                    <button 
-                      v-if="myRole === 'Owner' && p.userId !== myUserId" 
-                      @click="kickParticipant(p.userId)" 
-                      class="shrink-0 text-xs text-red-500 hover:bg-red-100 px-2 py-0.5 rounded transition"
-                      title="Izmest no pasākuma"
-                    >
-                      X
-                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                      <!-- Lomas maiņa (Tikai Owner) -->
+                      <button 
+                        v-if="myRole === 'Owner' && p.userId !== myUserId" 
+                        @click="toggleRole(p.userId, p.role)" 
+                        :title="p.role === 'Helper' ? 'Noņemt Palīga lomu' : 'Sniegt Palīga lomu'"
+                        class="text-xs text-indigo-600 hover:bg-indigo-50 px-2 py-0.5 rounded transition font-bold"
+                      >
+                        {{ p.role === 'Helper' ? '↓' : '↑' }}
+                      </button>
+
+                      <!-- Izmešanas poga (Owner var izmest visus, Helper var izmest tikai User) -->
+                      <button 
+                        v-if="p.userId !== myUserId && (myRole === 'Owner' || (myRole === 'Helper' && p.role === 'User'))" 
+                        @click="kickParticipant(p.userId)" 
+                        class="shrink-0 text-xs text-red-500 hover:bg-red-50 border border-red-100 px-2 py-0.5 rounded transition"
+                        title="Izmest no pasākuma"
+                      >
+                        X
+                      </button>
+                    </div>
                   </li>
                 </ul>
-
                 <!-- Vairāk / Mazāk pogas -->
                 <button 
                   v-if="heatmapData.length > 16 && !isParticipantsExpanded" 
@@ -120,6 +132,82 @@
                   Rādīt mazāk
                 </button>
               </div>
+
+              <!-- Plānotie Pasākumi -->
+              <div class="bg-white p-4 rounded-2xl shadow-sm border border-purple-100 flex flex-col mt-6">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="font-bold text-lg text-purple-800">Plānotie Pasākumi</h3>
+                  <button 
+                    v-if="myRole === 'Owner' || myRole === 'Helper'" 
+                    @click="showAddEventForm = !showAddEventForm"
+                    class="text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 px-2 py-1 rounded transition"
+                  >
+                    {{ showAddEventForm ? 'Atcelt' : '+ Pievienot' }}
+                  </button>
+                </div>
+
+                <!-- Forma jauna pasākuma pievienošanai -->
+                <div v-if="showAddEventForm" class="mb-4 bg-purple-50 p-3 rounded-lg border border-purple-100 flex flex-col gap-3">
+                  <input v-model="newPlannedEvent.title" type="text" maxlength="50" placeholder="Pasākuma nosaukums" class="w-full text-sm px-3 py-2 border border-purple-200 rounded bg-white" />
+                  
+                  <div class="flex flex-col sm:flex-row lg:flex-col gap-2">
+                    <div class="flex-1">
+                      <label class="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Sākums</label>
+                      <input v-model="newPlannedEvent.start" type="datetime-local" class="w-full text-xs px-2 py-1.5 border border-purple-200 rounded bg-white" />
+                    </div>
+                    <div class="flex-1">
+                      <label class="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Beigas</label>
+                      <input v-model="newPlannedEvent.end" type="datetime-local" class="w-full text-xs px-2 py-1.5 border border-purple-200 rounded bg-white" />
+                    </div>
+                  </div>
+                  
+                  <div class="flex flex-col gap-1">
+                    <textarea v-model="newPlannedEvent.description" maxlength="370" placeholder="Apraksts (nav obligāts)" rows="2" class="w-full text-sm px-3 py-2 border border-purple-200 rounded bg-white"></textarea>
+                    <div class="text-right text-[10px] text-purple-400 font-medium">{{ newPlannedEvent.description.length }}/370</div>
+                  </div>
+                  
+                  <button @click="addPlannedEvent" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold py-2 rounded mt-1 transition">Saglabāt pasākumu</button>
+                </div>
+
+                <!-- Pasākumu saraksts -->
+                <div v-if="plannedEvents.length === 0 && !showAddEventForm" class="text-sm text-gray-500 text-center py-4">Nav ieplānots neviens pasākums.</div>
+                
+                <ul class="flex flex-col gap-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
+                  <li v-for="pe in plannedEvents" :key="pe.id" class="bg-gray-50 border border-gray-200 rounded-lg p-3 relative group transition hover:border-purple-300">
+                    <div class="font-bold text-gray-800 text-sm pr-6 text-left">{{ pe.metadata?.title || 'Bez nosaukuma' }}</div>
+                    
+                    <!-- Taimeris -->
+                    <div class="text-xs text-purple-600 font-semibold mb-2 text-left">{{ getCountdown(pe.start_time, pe.end_time) }}</div>
+                    
+                    <!-- Datuma un laika vizualizācija -->
+                    <div class="text-[11px] text-gray-600 flex flex-col gap-0.5">
+                      <div class="flex justify-between items-center bg-white px-2 py-1 rounded border border-gray-100">
+                        <span class="font-semibold text-gray-500">Sākums:</span> 
+                        <span>{{ formatDateText(pe.start_time) }} <span class="font-bold ml-1 text-gray-700">{{ formatTimeText(pe.start_time) }}</span></span>
+                      </div>
+                      <div class="flex justify-between items-center bg-white px-2 py-1 rounded border border-gray-100">
+                        <span class="font-semibold text-gray-500">Beigas:</span> 
+                        <span>{{ formatDateText(pe.end_time) }} <span class="font-bold ml-1 text-gray-700">{{ formatTimeText(pe.end_time) }}</span></span>
+                      </div>
+                    </div>
+                    
+                    <!-- Apraksts -->
+                    <div v-if="pe.metadata?.description" class="text-[11px] text-gray-500 mt-2 italic border-t border-gray-200 pt-2 break-words">
+                      {{ pe.metadata.description }}
+                    </div>
+                    
+                    <button 
+                      v-if="myRole === 'Owner' || myRole === 'Helper'" 
+                      @click="deletePlannedEvent(pe.id)"
+                      class="absolute top-2 right-2 text-red-400 hover:text-red-600 hidden group-hover:flex items-center justify-center w-6 h-6 bg-white border border-gray-200 rounded shadow-sm transition"
+                      title="Dzēst pasākumu"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
             </div>
 
             <!-- Labā kolonna: Siltumkarte -->
@@ -161,6 +249,9 @@ const heatmapData = ref<any[]>([])
 const totalParticipants = ref(0)
 const myTables = ref<any[]>([])
 const selectedTableId = ref<number | null>(null)
+const plannedEvents = ref<any[]>([])
+const showAddEventForm = ref(false)
+const newPlannedEvent = ref({ title: '', description: '', start: '', end: '' })
 
 // UI stāvokļi
 const isLoading = ref(true)
@@ -244,6 +335,12 @@ const loadEventData = async (isSilent = false) => {
         myTables.value = tData.tables
       }
     }
+      const plannedRes = await fetch(`/api/events/${eventId}/planned-events`)
+      if (plannedRes.ok) {
+        const pData = await plannedRes.json()
+        plannedEvents.value = pData.plannedEvents
+      }
+
   } catch (error) {
     if (!isSilent) errorMsg.value = 'Savienojuma kļūda vai jums nav piekļuves.'
   } finally {
@@ -316,6 +413,127 @@ const updateMyTable = async () => {
   } finally {
     isSavingTable.value = false
   }
+}
+
+// Taimeris
+const getCountdown = (startString: string, endString: string) => {
+  const now = new Date().getTime();
+  const start = new Date(startString).getTime();
+  const end = new Date(endString).getTime();
+
+  // Ja pasākums jau ir pilnībā noslēdzies
+  if (now > end) return '🔴 Beidzies';
+
+  let diff;
+  let prefix = '';
+  let suffix = '';
+
+  // Ja pasākums notiek tieši tagad
+  if (now >= start && now <= end) {
+    diff = end - now;
+    prefix = '🟢 Notiek pašlaik (beigsies pēc ';
+    suffix = ')';
+  } else {
+    // Ja pasākums vēl tikai būs
+    diff = start - now;
+    prefix = 'Pēc ';
+  }
+
+  const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const m = Math.floor((diff / 1000 / 60) % 60);
+
+  // Rādām tikai to, kas nav nulle
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  parts.push(`${m}m`); // Minūtes
+
+  return `${prefix}${parts.join(' ')}${suffix}`;
+}
+
+// -- Datuma formāts: dd / mmm / yyyy --
+const formatDateText = (dateString: string) => {
+  const d = new Date(dateString);
+  const day = d.getDate().toString().padStart(2, '0');
+  // Saīsināti mēnešu nosaukumi
+  const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jūn', 'jūl', 'aug', 'sep', 'okt', 'nov', 'dec'];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} / ${month} / ${year}`;
+}
+
+// Formatē laiku izmantojot lietotāja izvēlēto 12h vai 24h formātu
+const formatTimeText = (dateString: string) => {
+  const d = new Date(dateString);
+  const hours = d.getHours();
+  const mins = d.getMinutes().toString().padStart(2, '0');
+  const format = authStore.user?.settings?.timeFormat || '24h';
+  
+  if (format === '24h') {
+    return `${hours.toString().padStart(2, '0')}:${mins}`;
+  } else {
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const h12 = hours % 12 || 12;
+    return `${h12}:${mins} ${ampm}`;
+  }
+}
+
+// Lomas maiņa (Tikai Owner)
+const toggleRole = async (targetId: number, currentRole: string) => {
+  const newRole = currentRole === 'Helper' ? 'User' : 'Helper';
+  if (!confirm(`Vai mainīt šī lietotāja lomu uz ${newRole}?`)) return;
+  
+  try {
+    const res = await fetch(`/api/events/${eventId}/participants/${targetId}/role`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_role: newRole })
+    });
+    if (res.ok) await loadEventData(true);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Plānotā pasākuma pievienošana (Owner un Helper)
+const addPlannedEvent = async () => {
+  if (!newPlannedEvent.value.title || !newPlannedEvent.value.start || !newPlannedEvent.value.end) {
+    alert("Lūdzu aizpildi visus obligātos laukus!");
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/events/${eventId}/planned-events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: newPlannedEvent.value.title,
+        description: newPlannedEvent.value.description,
+        start_time: new Date(newPlannedEvent.value.start).toISOString(), // UTC konvertācija
+        end_time: new Date(newPlannedEvent.value.end).toISOString()
+      })
+    });
+
+    if (res.ok) {
+      showAddEventForm.value = false;
+      newPlannedEvent.value = { title: '', description: '', start: '', end: '' };
+      await loadEventData(true);
+    } else {
+      const err = await res.json();
+      alert(err.error || "Kļūda saglabājot");
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+const deletePlannedEvent = async (plannedId: number) => {
+  if (!confirm("Tiešām dzēst šo pasākumu?")) return;
+  try {
+    const res = await fetch(`/api/events/${eventId}/planned-events/${plannedId}`, { method: 'DELETE' });
+    if (res.ok) await loadEventData(true);
+  } catch (e) { console.error(e); }
 }
 </script>
 

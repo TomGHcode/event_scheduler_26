@@ -1,7 +1,7 @@
 ## This description is WIP.
 
 ### Short description
-This is a scheduling app with automatic timezone conversion + time format options, a Heatmap, availability graphs / filters, and ~~Events~~ primaraly for multi-national online groups.
+This is a scheduling app with automatic timezone conversion + time format options, a Heatmap, availability graphs / filters, and Events - primaraly for multi-national online groups.
 
 <ins>**Keep in mind! This is a student project and all the UI + code comments are in Latvian!**</ins>
 
@@ -12,7 +12,7 @@ This is a scheduling app with automatic timezone conversion + time format option
 - Create or join (trough an invite key) an event table
 - Choose your availability table and watch the heatmap + graphs update live!
 
-If you are an event owner, you can manage users that have joined your event, ~~create events~~ and create a new invite keys (old one gets destroyed)
+If you are an event owner, you can manage users that have joined your event, create events and create a new invite keys (old one gets destroyed)
 
 
 ### Techstack:
