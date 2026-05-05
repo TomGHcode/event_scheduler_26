@@ -52,6 +52,9 @@ services:
       - NODE_ENV=development
       - DATABASE_URL=postgres://admin:secretpassword@database:5432/event_scheduler
       - REDIS_URL=redis://cache:6379
+      - ../.env
+    env_file: 
+      - .env
     depends_on:
       - database
       - cache

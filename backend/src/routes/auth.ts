@@ -6,6 +6,13 @@ import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { db } from '../db';
 
+
+// Discord autentifikācijas slepenie piekļuves dati
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '';
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET || '';
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localhost/api/auth/discord/callback';
+
+
 // Zod validācijas shēma
 const UserAuthSchema = z.object({
   username: z.string().min(3, "Lietotājvārdam jābūt vismaz 3 simbolus garam"),
@@ -172,6 +179,91 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch (error) {
       request.server.log.error(error);
       return reply.status(500).send({ error: 'Neizdevās saglabāt iestatījumus' });
+    }
+  });
+  
+  // -- DISCORD INTEGRĀCIJA --
+  // 1. Maršruts: Lietotāja novirzīšana uz Discord login lapu
+  fastify.get('/discord/login', async (request, reply) => {
+    const url = `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}&response_type=code&scope=identify`;
+    return reply.redirect(url);
+  });
+
+  // 2. Maršruts: Discord atgriež lietotāju ar "code"
+  fastify.get('/discord/callback', async (request, reply) => {
+    const { code } = request.query as { code?: string };
+    if (!code) return reply.status(400).send({ error: 'Nav autorizācijas koda no Discord' });
+
+    try {
+      // A. Apmainām kodu pret Access Token
+      const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: DISCORD_CLIENT_ID,
+          client_secret: DISCORD_CLIENT_SECRET,
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: DISCORD_REDIRECT_URI,
+        })
+      });
+
+      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) return reply.status(400).send({ error: 'Neizdevās iegūt token no Discord' });
+
+      // B. Iegūstam lietotāja datus no Discord
+      const userResponse = await fetch('https://discord.com/api/users/@me', {
+        headers: { authorization: `Bearer ${tokenData.access_token}` }
+      });
+      const discordUser = await userResponse.json();
+
+      // C. Pārbaudām, vai šāds Discord ID jau eksistē datubāzē[cite: 1]
+      let user = await db.selectFrom('users')
+        .selectAll()
+        .where('discord_id', '=', discordUser.id)
+        .executeTakeFirst();
+
+      if (!user) {
+        // Lietotājs neeksistē - izveidojam jaunu!
+        // Tā kā password_hash ir obligāts lauks, ģenerējam drošu nejaušu rindu, 
+        // ko neviens nezina (lietotājs turpmāk slēgsies tikai caur Discord).
+        const randomPass = crypto.randomBytes(32).toString('hex');
+        const password_hash = await bcrypt.hash(randomPass, 10);
+
+        // Lai izvairītos no vienādiem lietotājvārdiem, varam pielikt identifikatoru
+        const safeUsername = `${discordUser.username}_${crypto.randomBytes(2).toString('hex')}`;
+
+        user = await db.insertInto('users')
+          .values({
+            username: safeUsername,
+            password_hash,
+            discord_id: discordUser.id, // Saglabājam viņa Discord ID[cite: 1, 2]
+            role: 'User',
+            timezone: 'UTC',
+            settings_json: JSON.stringify({}),
+          })
+          .returningAll()
+          .executeTakeFirstOrThrow();
+      }
+
+      // D. Izveidojam drošu sesiju (tieši tāpat kā lokālajā Login)
+      const sessionId = crypto.randomUUID();
+      await redis.set(`session:${sessionId}`, JSON.stringify({ userId: user.id, role: user.role }), 'EX', 604800);
+
+      reply.setCookie('sessionId', sessionId, {
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 604800,
+      });
+
+      // E. Veiksmīgi pabeigts, novirzām uz frontend sākumlapu
+      return reply.redirect('/');
+
+    } catch (error) {
+      request.server.log.error(error);
+      return reply.redirect('/login?error=discord_failed');
     }
   });
 }
