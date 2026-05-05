@@ -77,7 +77,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
 
   // 1. Izveidot jaunu Notikumu tabulu
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+    
     try {
       const parsedBody = CreateEventSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -86,6 +89,19 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
       const { name, description } = parsedBody.data;
       const userId = request.user!.userId;
+      const userRole = request.user!.role;
+
+      // LIMITA PĀRBAUDE: max 5 Izveidoti Pasākumi (izņemot Admin)
+      if (userRole !== 'Administrator') {
+        const eventCountRes = await db.selectFrom('event_tables')
+          .select(db.fn.count('id').as('total'))
+          .where('owner_id', '=', userId)
+          .executeTakeFirst();
+        
+        if (Number(eventCountRes?.total || 0) >= 5) {
+          return reply.status(403).send({ error: 'Sniegts maksimālais izveidoto pasākumu skaits (5).' });
+        }
+      }
       
       // Ģenerējam unikālu 16 zīmju (HEX) ielūguma atslēgu
       const invite_key = crypto.randomBytes(8).toString('hex');
@@ -127,7 +143,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
 
   // 2. Pievienoties Notikumu tabulai ar Invite Key
-  fastify.post('/join', async (request, reply) => {
+  fastify.post('/join', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+
     try {
       const parsedBody = JoinEventSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -136,6 +155,17 @@ export default async function eventRoutes(fastify: FastifyInstance) {
 
       const { invite_key, availability_table_id, is_private } = parsedBody.data;
       const userId = request.user!.userId;
+
+      // LIMITA PĀRBAUDE: Max 5 dalības pasākumos
+      // Šo piemērojam visiem, lai neviens nevarētu pievienoties 1000 grupām un saņemt masveida WS updeitus
+      const joinedCountRes = await db.selectFrom('event_participants')
+        .select(db.fn.count('id').as('total'))
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+      
+      if (Number(joinedCountRes?.total || 0) >= 5) {
+        return reply.status(403).send({ error: 'Jūs jau esat pievienojies maksimālajam atļautajam pasākumu skaitam (5).' });
+      }
 
       // Atrodam notikumu pēc atslēgas
       const eventTable = await db.selectFrom('event_tables')
@@ -271,7 +301,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
   
   // 4. Savas piesaistītās tabulas nomainīšanai pasākumā
-  fastify.put('/:id/my-table', async (request, reply) => {
+  fastify.put('/:id/my-table', {
+     config: { rateLimit: { max: 15, timeWindow: '1 minute' } } 
+    }, async (request, reply) => {
+      
     try {
       const { id } = request.params as { id: string };
       const eventId = parseInt(id, 10);
@@ -341,7 +374,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
   
   // 6. Atjaunot ielūguma atslēgu (pieejams tikai Īpašniekam)
-  fastify.patch('/:id/invite-key', async (request, reply) => {
+  fastify.patch('/:id/invite-key', {
+     config: { rateLimit: { max: 5, timeWindow: '1 minute' } } 
+    }, async (request, reply) => {
+      
     try {
       const { id } = request.params as { id: string };
       const eventId = parseInt(id, 10);
@@ -374,7 +410,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
 
   // 7. Dzēst pasākumu (Tikai Owner)
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+     config: { rateLimit: { max: 10, timeWindow: '1 minute' } } 
+    }, async (request, reply) => {
+
     try {
       const eventId = parseInt((request.params as any).id as string, 10);
       const userId = request.user!.userId;
@@ -450,7 +489,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
 
   // 9. Rediģēt pasākuma nosaukumu un aprakstu (Tikai Owner)
-  fastify.patch('/:id', async (request, reply) => {
+  fastify.patch('/:id', {
+     config: { rateLimit: { max: 15, timeWindow: '1 minute' } } 
+    }, async (request, reply) => {
+    
     try {
       const eventId = parseInt((request.params as any).id as string, 10);
       const userId = request.user!.userId;
@@ -486,7 +528,10 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
 
   // 10. Mainīt dalībnieka lomu (Tikai Owner var iedot Helper)
-  fastify.patch('/:id/participants/:targetId/role', async (request, reply) => {
+  fastify.patch('/:id/participants/:targetId/role', {
+     config: { rateLimit: { max: 5, timeWindow: '1 minute' } } 
+    }, async (request, reply) => {
+
     try {
       const eventId = parseInt((request.params as any).id as string, 10);
       const targetId = parseInt((request.params as any).targetId as string, 10);
@@ -537,10 +582,23 @@ export default async function eventRoutes(fastify: FastifyInstance) {
   });
 
   // 12. Pievienot jaunu plānoto pasākumu (Tikai Owner / Helper)
-  fastify.post('/:id/planned-events', async (request, reply) => {
+  fastify.post('/:id/planned-events', {
+    config: { rateLimit: { max: 5, timeWindow: '3 minutes' } }
+  }, async (request, reply) => {
+
     try {
       const eventId = parseInt((request.params as any).id as string, 10);
       const userId = request.user!.userId;
+
+      // LIMITA PĀRBAUDE: Max 5 plānotie pasākumi vienā Event tabulā
+      const plannedCountRes = await db.selectFrom('planned_events')
+        .select(db.fn.count('id').as('total'))
+        .where('event_table_id', '=', eventId)
+        .executeTakeFirst();
+
+      if (Number(plannedCountRes?.total || 0) >= 5) {
+        return reply.status(403).send({ error: 'Šajā pasākumā ir sasniegts maksimālais aktīvo plānoto notikumu skaits (5).' });
+      }
 
       const parsedBody = PlannedEventSchema.safeParse(request.body);
       if (!parsedBody.success) return reply.status(400).send({ error: 'Nekorekti dati', details: parsedBody.error.format() });

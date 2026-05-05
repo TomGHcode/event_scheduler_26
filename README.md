@@ -5,9 +5,12 @@ This is a scheduling app with automatic timezone conversion + time format option
 
 **Keep in mind! This is an active student project, all the UI + code comments are in Latvian!**
 
-**Project is Currently set to:**  
+Project is Currently set to:  
 **DEVELOPMENT ENVIRONMENT**  
 <ins>**(THIS IS NOT A READY TO DEPLOY WEB APPLICATION)**</ins>
+
+### Techstack:
+Vue 3, Tailwind, Typescript, Fastify, Postgres, Zod, Redis and other.
 
 ### Usage
 
@@ -18,9 +21,6 @@ This is a scheduling app with automatic timezone conversion + time format option
 
 If you are an event owner, you can manage users that have joined your event, create events and create a new invite keys (old one gets destroyed)
 
-
-### Techstack:
-Vue 3, Tailwind, Typescript, Fastify, Postgres, Zod, Redis and other.
 
 ***
 # Basic startup

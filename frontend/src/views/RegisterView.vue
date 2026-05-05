@@ -11,6 +11,7 @@
             type="text" 
             required 
             minlength="3"
+            maxlength="32"
             class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
@@ -22,6 +23,7 @@
             type="password" 
             required 
             minlength="6"
+            maxlength="128"
             class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
           />
         </div>

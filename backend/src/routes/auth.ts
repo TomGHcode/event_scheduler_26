@@ -15,12 +15,18 @@ const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI || 'http://localho
 
 // Zod validācijas shēma
 const UserAuthSchema = z.object({
-  username: z.string().min(3, "Lietotājvārdam jābūt vismaz 3 simbolus garam"),
-  password: z.string().min(6, "Parolei jābūt vismaz 6 simbolus garai"),
+  username: z.string()
+    .min(3, "Lietotājvārdam jābūt vismaz 3 simbolus garam")
+    .max(32, "Lietotājvārds nedrīkst pārsniegt 32 simbolus"),
+  password: z.string()
+    .min(6, "Parolei jābūt vismaz 6 simbolus garai")
+    .max(128, "Parole nedrīkst pārsniegt 128 simbolus"),
 });
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    config: { rateLimit: { max: 5, timeWindow: '10 minute' } }
+   }, async (request, reply) => {
     try {
       // 1. Validējam ienākošos datus ar Zod
       const parsedBody = UserAuthSchema.safeParse(request.body);
@@ -47,12 +53,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const saltRounds = 10;
       const password_hash = await bcrypt.hash(password, saltRounds);
 
-      // 4. Saglabājam lietotāju tabulā (Kysely Type-Safe SQL)
+      // 4. Pārbaudām, cik lietotāju sistēmā eksistē.
+      // Ja 0, tad pirmais lietotājs būs Administrators
+      const userCountRes = await db.selectFrom('users')
+        .select(db.fn.count('id').as('total'))
+        .executeTakeFirst();
+      
+      const isFirstUser = Number(userCountRes?.total || 0) === 0;
+      const assignedRole = isFirstUser ? 'Administrator' : 'User';
+
+      // 5. Saglabājam lietotāju tabulā (Kysely Type-Safe SQL)
       const newUser = await db.insertInto('users')
         .values({
           username,
           password_hash,
-          role: 'User', // Atbilstoši specifikācijas lomām
+          role: assignedRole,
           timezone: 'UTC', // Noklusējuma laika zona
           settings_json: JSON.stringify({}),
         })
@@ -70,7 +85,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   });
   
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
     try {
       // 1. Validējam datus ar to pašu Zod shēmu
       const parsedBody = UserAuthSchema.safeParse(request.body);
@@ -164,7 +181,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
   });
 	
   // Lietotāja iestatījumu saglabāšana
-  fastify.put('/settings', { preHandler: [authenticate] }, async (request, reply) => {
+  fastify.put('/settings', { 
+  preHandler: [authenticate],
+  config: { rateLimit: { max: 15, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
     try {
       const { timezone, timeFormat } = request.body as any; // (vēlāk jāpievieno Zod validācija)
       
@@ -239,28 +259,37 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
       const discordUser = await userResponse.json();
 
-      // C. Pārbaudām, vai šāds Discord ID jau eksistē datubāzē[cite: 1]
+      // C. Pārbaudām, vai šāds Discord ID jau eksistē datubāzē
       let user = await db.selectFrom('users')
         .selectAll()
         .where('discord_id', '=', discordUser.id)
         .executeTakeFirst();
 
       if (!user) {
-        // Lietotājs neeksistē - izveidojam jaunu!
-        // Tā kā password_hash ir obligāts lauks, ģenerējam drošu nejaušu rindu, 
-        // ko neviens nezina (lietotājs turpmāk slēgsies tikai caur Discord).
+        // Lietotājs neeksistē - izveidojam jaunu.
+        // password_hash ir obligāts - ģenerējam drošu nejaušu rindu, ko neviens nezina
+        // (lietotājs turpmāk slēgsies tikai caur Discord).
         const randomPass = crypto.randomBytes(32).toString('hex');
         const password_hash = await bcrypt.hash(randomPass, 10);
 
-        // Lai izvairītos no vienādiem lietotājvārdiem, varam pielikt identifikatoru
+        // Lai izvairītos no vienādiem lietotājvārdiem, pievienojam identifikatoru
         const safeUsername = `${discordUser.username}_${crypto.randomBytes(2).toString('hex')}`;
+
+        // Pārbaudām, cik lietotāju sistēmā eksistē.
+        // Ja 0, tad pirmais lietotājs būs Administrators
+        const userCountRes = await db.selectFrom('users')
+          .select(db.fn.count('id').as('total'))
+          .executeTakeFirst();
+        
+        const isFirstUser = Number(userCountRes?.total || 0) === 0;
+        const assignedRole = isFirstUser ? 'Administrator' : 'User';
 
         user = await db.insertInto('users')
           .values({
             username: safeUsername,
             password_hash,
-            discord_id: discordUser.id, // Saglabājam viņa Discord ID[cite: 1, 2]
-            role: 'User',
+            discord_id: discordUser.id, // Saglabājam viņa Discord ID
+            role: assignedRole,
             timezone: 'UTC',
             settings_json: JSON.stringify({}),
           })

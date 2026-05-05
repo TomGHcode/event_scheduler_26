@@ -22,7 +22,10 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authenticate);
 
   // 1. Izveidot jaunu pieejamības tabulu ar intervāliem
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', {
+    config: { rateLimit: { max: 15, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+	  
     try {
       const parsedBody = CreateTableSchema.safeParse(request.body);
       if (!parsedBody.success) {
@@ -31,6 +34,7 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
 
       const { name, is_active, intervals } = parsedBody.data;
       const userId = request.user!.userId;
+	  const userRole = request.user!.role;
 
       // Izmantojam datubāzes transakciju
       const result = await db.transaction().execute(async (trx) => {
@@ -43,6 +47,18 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
           })
           .returning('id')
           .executeTakeFirstOrThrow();
+		
+	  // LIMITA PĀRBAUDE: 5 Tabulas (izņemot Admin)
+		if (userRole !== 'Administrator') {
+			const tableCountRes = await db.selectFrom('availability_tables')
+			  .select(db.fn.count('id').as('total'))
+			  .where('user_id', '=', userId)
+			  .executeTakeFirst();
+			
+			if (Number(tableCountRes?.total || 0) >= 5) {
+			  return reply.status(403).send({ error: 'Sasniegts maksimālais pieejamības tabulu skaits (5).' });
+			  }
+		 }
 
         // B. Pievienojam intervālus, ja tādi ir norādīti
         if (intervals.length > 0) {
@@ -118,7 +134,10 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
   });
 
   // 4. Dzēst pieejamības tabulu
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+	  
     try {
       const { id } = request.params as { id: string };
       const tableId = parseInt(id, 10);
@@ -141,7 +160,10 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
   });
 
   // 5. Atjaunināt tabulu (dzēšam vecos intervālus un liekam jaunos)
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+	  
     try {
       const { id } = request.params as { id: string };
       const tableId = parseInt(id, 10);

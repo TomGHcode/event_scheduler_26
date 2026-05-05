@@ -1,3 +1,4 @@
+import adminRoutes from './routes/admin';
 import eventRoutes from './routes/events';
 import availabilityRoutes from './routes/availability';
 import cookie from '@fastify/cookie';
@@ -83,6 +84,8 @@ app.register(eventRoutes, { prefix: '/api/events' });
 // Reģistrējam Availability
 app.register(availabilityRoutes, { prefix: '/api/availability' });
 
+// Reģistrējam Admin routes
+app.register(adminRoutes, { prefix: '/api/admin' });
 
 // Startējam serveri
 const start = async () => {

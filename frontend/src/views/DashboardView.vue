@@ -7,6 +7,16 @@
         <h1 class="text-3xl font-bold text-gray-800">Informācijas panelis</h1>
         <div class="flex items-center gap-4">
           <span class="text-gray-600 font-medium">Sveiki, {{ authStore.user?.username }}!</span>
+
+            <!-- ADMIN -->
+            <router-link 
+              to="/admin"
+              v-if="authStore.user?.role === 'Administrator'" 
+              class="bg-red-100 hover:bg-red-200 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded border border-red-200 uppercase tracking-wider cursor-pointer transition shadow-sm"
+              title="Atvērt Admin Paneli"
+            >
+              Admin Panelis
+            </router-link>
           
           <!-- Konta dzēšanas poga -->
           <button 
