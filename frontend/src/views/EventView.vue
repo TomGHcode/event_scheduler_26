@@ -230,6 +230,7 @@ import { useRouter } from 'vue-router'
 import TimeSettings from '../components/TimeSettings.vue'
 import HeatmapGrid from '../components/HeatmapGrid.vue'
 import AvailabilityGraph from '../components/AvailabilityGraph.vue'
+import { fromZonedTime } from 'date-fns-tz';
 
 const route = useRoute()
 const router = useRouter()
@@ -512,14 +513,22 @@ const addPlannedEvent = async () => {
   }
 
   try {
+    // 1. Iegūstam aktīvo laika zonu (piem., 'America/New_York')
+    const tz = authStore.user?.timezone || 'UTC';
+    
+    // 2. Interpretējam ievadīto tekstu šajā laika zonā un pārvēršam uz UTC
+    // fromZonedTime paņem "2026-05-04T12:00" un saprot: "Ā, šis ir Ņujorkas laiks, tātad UTC tas būs 16:00!"
+    const startUtcDate = fromZonedTime(newPlannedEvent.value.start, tz);
+    const endUtcDate = fromZonedTime(newPlannedEvent.value.end, tz);
+
     const res = await fetch(`/api/events/${eventId}/planned-events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: newPlannedEvent.value.title,
         description: newPlannedEvent.value.description,
-        start_time: new Date(newPlannedEvent.value.start).toISOString(), // UTC konvertācija
-        end_time: new Date(newPlannedEvent.value.end).toISOString()
+        start_time: startUtcDate.toISOString(), 
+        end_time: endUtcDate.toISOString()
       })
     });
 
@@ -535,7 +544,6 @@ const addPlannedEvent = async () => {
     console.error(e);
   }
 }
-
 const deletePlannedEvent = async (plannedId: number) => {
   if (!confirm("Tiešām dzēst šo pasākumu?")) return;
   try {
