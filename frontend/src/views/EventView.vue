@@ -295,7 +295,7 @@ const connectWebSocket = () => {
     try {
       const data = JSON.parse(event.data);
       if (data.type === 'HEATMAP_UPDATED') {
-        // Kāds izmainīja savu tabulu vai pievienojās! Ielādējam datus klusajā režīmā.
+        // Kāds izmainīja savu tabulu vai pievienojās, Ielādējam datus klusajā režīmā.
         loadEventData(true);
       }
     } catch (e) {
@@ -381,7 +381,7 @@ const kickParticipant = async (targetId: number) => {
   try {
     const res = await fetch(`/api/events/${eventId}/participants/${targetId}`, { method: 'DELETE' });
     if (res.ok) {
-      // WebSocket automātiski atjaunos ekrānu, bet sirdsmieram varam izsaukt loadEventData(true)
+      // WebSocket automātiski atjaunos ekrānu, bets papildus varam izsaukt loadEventData(true)
       await loadEventData(true);
     }
   } catch (error) {
@@ -452,20 +452,28 @@ const getCountdown = (startString: string, endString: string) => {
   return `${prefix}${parts.join(' ')}${suffix}`;
 }
 
-// -- Datuma formāts: dd / mmm / yyyy --
-const formatDateText = (dateString: string) => {
+// -- Palīgfunkcija: Pārbīda datumu uz lietotāja izvēlēto laika zonu --
+const getShiftedDate = (dateString: string) => {
   const d = new Date(dateString);
+  const tz = authStore.user?.timezone || 'UTC';
+  // Ar trika palīdzību izveido jaunu Date objektu, kura "lokālie" laiki 
+  // (getHours, getDate u.c.) atbildīs tieši izvēlētajai laika zonai.
+  return new Date(d.toLocaleString('en-US', { timeZone: tz }));
+}
+
+// -- Datuma formāts, ņemot vērā lietotāja laika zonu --
+const formatDateText = (dateString: string) => {
+  const d = getShiftedDate(dateString); // Izmantojam pārbīdīto datumu
   const day = d.getDate().toString().padStart(2, '0');
-  // Saīsināti mēnešu nosaukumi
   const months = ['jan', 'feb', 'mar', 'apr', 'mai', 'jūn', 'jūl', 'aug', 'sep', 'okt', 'nov', 'dec'];
   const month = months[d.getMonth()];
   const year = d.getFullYear();
   return `${day} / ${month} / ${year}`;
 }
 
-// Formatē laiku izmantojot lietotāja izvēlēto 12h vai 24h formātu
+// -- Laika formāts, ņemot vērā lietotāja laika zonu un 12h/24h --
 const formatTimeText = (dateString: string) => {
-  const d = new Date(dateString);
+  const d = getShiftedDate(dateString); // Izmantojam pārbīdīto datumu
   const hours = d.getHours();
   const mins = d.getMinutes().toString().padStart(2, '0');
   const format = authStore.user?.settings?.timeFormat || '24h';
