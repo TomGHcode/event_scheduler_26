@@ -1,12 +1,63 @@
 <template>
   <div class="min-h-screen bg-gray-50 p-8">
     <div class="max-w-5xl mx-auto">
+
       <!-- Galvene -->
       <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-800">Informācijas panelis</h1>
         <div class="flex items-center gap-4">
           <span class="text-gray-600 font-medium">Sveiki, {{ authStore.user?.username }}!</span>
-          <button @click="logout" class="text-gray-500 hover:text-red-600 font-medium transition">Iziet</button>
+          
+          <!-- Konta dzēšanas poga -->
+          <button 
+            v-if="!showDeleteConfirm"
+            @click="showDeleteConfirm = true" 
+            class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1 rounded-lg text-sm font-semibold transition"
+          >
+            Dzēst kontu
+          </button>
+          
+          <button @click="logout" class="text-gray-500 hover:text-gray-800 font-medium transition">Iziet</button>
+        </div>
+      </div>
+
+      <!-- BĪSTAMĀ ZONA -->
+      <!-- Konta dzēšanas apstiprinājums -->
+      <div v-if="showDeleteConfirm" class="mb-8 p-6 bg-red-50 rounded-2xl border border-red-200 shadow-sm transition-all origin-top">
+        <h3 class="font-bold text-red-800 mb-2">Bīstamā zona: Konta dzēšana</h3>
+        <p class="text-sm text-red-600 mb-4">
+          Konta dzēšana ir neatgriezeniska. Tiks izdzēsti visi tavi pasākumi, tabulas un dati no sistēmas.
+        </p>
+        
+        <!-- Apstiprinājuma forma (Konta dzēšana) -->
+        <div class="flex flex-col sm:flex-row gap-4 items-end">
+          <div class="flex-1 w-full">
+            <label class="text-sm text-gray-700 font-medium mb-1 block  p-2">
+              Lai apstiprinātu, ievadi savu lietotājvārdu: 
+              <span class="font-bold text-red-600 select-none">{{ authStore.user?.username }}</span>
+            </label>
+            <input 
+              v-model="deleteConfirmUsername" 
+              type="text" 
+              class="px-4 py-2 border border-red-300 rounded-lg focus:ring-red-500 focus:border-red-500 w-full bg-white" 
+              placeholder="Lietotājvārds" 
+            />
+          </div>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button 
+              @click="confirmDeleteAccount" 
+              :disabled="deleteConfirmUsername !== authStore.user?.username" 
+              class="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-bold transition flex-1 sm:flex-none whitespace-nowrap"
+            >
+              Apstiprināt
+            </button>
+            <button 
+              @click="showDeleteConfirm = false; deleteConfirmUsername = ''" 
+              class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold transition flex-1 sm:flex-none whitespace-nowrap"
+            >
+              Atcelt
+            </button>
+          </div>
         </div>
       </div>
 
@@ -141,6 +192,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
 </template>
@@ -152,6 +204,8 @@ import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const showDeleteConfirm = ref(false)
+const deleteConfirmUsername = ref('')
 
 // Datu stāvokļi
 const tables = ref<any[]>([])
@@ -290,6 +344,17 @@ const leaveEvent = async (id: number) => {
   } catch (e) { console.error(e); }
 }
 
+// Funkcija dzēšanas apstiprināšanai
+const confirmDeleteAccount = async () => {
+  if (deleteConfirmUsername.value !== authStore.user?.username) return;
+  
+  const success = await authStore.deleteAccount()
+  if (success) {
+    router.push('/register') // Vai /login
+  } else {
+    actionError.value = 'Neizdevās izdzēst kontu. Lūdzu mēģiniet vēlāk.'
+  }
+}
 
 const logout = async () => {
   await authStore.logout()

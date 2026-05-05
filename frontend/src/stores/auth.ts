@@ -127,5 +127,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, error, login, register, checkAuth, updateSettings, logout }
+  // Konta dzēšana
+  const deleteAccount = async () => {
+    try {
+      const response = await fetch('/api/auth/account', { method: 'DELETE' })
+      if (response.ok) {
+        user.value = null
+        return true
+      }
+      return false
+    } catch (e) {
+      console.error('Kļūda dzēšot kontu:', e)
+      return false
+    }
+  }
+
+  return { user, error, login, register, checkAuth, updateSettings, logout, deleteAccount }
 })

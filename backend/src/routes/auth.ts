@@ -181,6 +181,28 @@ export default async function authRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Neizdevās saglabāt iestatījumus' });
     }
   });
+
+  // Konta un visu tā datu dzēšana
+  fastify.delete('/account', { preHandler: [authenticate] }, async (request, reply) => {
+    try {
+      const userId = request.user!.userId;
+      const sessionId = request.cookies.sessionId;
+
+      // 1. Izdzēšam lietotāju no datubāzes (PostgreSQL CASCADE izdzēsīs visu pārējo)
+      await db.deleteFrom('users').where('id', '=', userId).execute();
+
+      // 2. Iznīcinām sesiju
+      if (sessionId) {
+        await redis.del(`session:${sessionId}`);
+        reply.clearCookie('sessionId', { path: '/' });
+      }
+
+      return reply.status(200).send({ message: 'Konts veiksmīgi izdzēsts' });
+    } catch (error) {
+      request.server.log.error(error);
+      return reply.status(500).send({ error: 'Neizdevās izdzēst kontu' });
+    }
+  });
   
   // -- DISCORD INTEGRĀCIJA --
   // 1. Maršruts: Lietotāja novirzīšana uz Discord login lapu

@@ -3,7 +3,7 @@
 ### Short description
 This is a scheduling app with automatic timezone conversion + time format options, a Heatmap, availability graphs / filters, Events and Discord login Integration - primaraly for multi-national online groups.
 
-<ins>**Keep in mind! This is an active student project, that is currently set to DEVELOPMENT ENVIRONMENT (THIS IS NOT A READY TO DEPLOY WEB APPLICATION), all the UI + code comments are in Latvian!**</ins>
+**Keep in mind! This is an active student project, that is** <ins>**currently set to DEVELOPMENT ENVIRONMENT (THIS IS NOT A READY TO DEPLOY WEB APPLICATION)**</ins>**, all the UI + code comments are in Latvian!**
 
 ### Usage
 
