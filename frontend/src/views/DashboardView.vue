@@ -6,9 +6,8 @@
       <div class="flex justify-between items-center mb-8">
         <h1 class="text-3xl font-bold text-gray-800">Informācijas panelis</h1>
         <div class="flex items-center gap-4">
-          <span class="text-gray-600 font-medium">Sveiki, {{ authStore.user?.username }}!</span>
-
-            <!-- ADMIN -->
+          <div class="flex items-center gap-2">
+            <span class="text-gray-600 font-medium">Sveiki, {{ authStore.user?.username }}!</span>
             <router-link 
               to="/admin"
               v-if="authStore.user?.role === 'Administrator'" 
@@ -17,56 +16,73 @@
             >
               Admin Panelis
             </router-link>
+          </div>
           
-          <!-- Konta dzēšanas poga -->
+          <!-- PROFILA POGA -->
           <button 
-            v-if="!showDeleteConfirm"
-            @click="showDeleteConfirm = true" 
-            class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1 rounded-lg text-sm font-semibold transition"
+            @click="toggleProfile" 
+            class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1 rounded-lg text-sm font-semibold transition"
           >
-            Dzēst kontu
+            {{ showProfile ? 'Aizvērt Profilu' : 'Profils' }}
           </button>
           
           <button @click="logout" class="text-gray-500 hover:text-gray-800 font-medium transition">Iziet</button>
         </div>
       </div>
 
-      <!-- BĪSTAMĀ ZONA -->
-      <!-- Konta dzēšanas apstiprinājums -->
-      <div v-if="showDeleteConfirm" class="mb-8 p-6 bg-red-50 rounded-2xl border border-red-200 shadow-sm transition-all origin-top">
-        <h3 class="font-bold text-red-800 mb-2">Bīstamā zona: Konta dzēšana</h3>
-        <p class="text-sm text-red-600 mb-4">
-          Konta dzēšana ir neatgriezeniska. Tiks izdzēsti visi tavi pasākumi, tabulas un dati no sistēmas.
-        </p>
-        
-        <!-- Apstiprinājuma forma (Konta dzēšana) -->
-        <div class="flex flex-col sm:flex-row gap-4 items-end">
-          <div class="flex-1 w-full">
-            <label class="text-sm text-gray-700 font-medium mb-1 block  p-2">
-              Lai apstiprinātu, ievadi savu lietotājvārdu: 
-              <span class="font-bold text-red-600 select-none">{{ authStore.user?.username }}</span>
-            </label>
-            <input 
-              v-model="deleteConfirmUsername" 
-              type="text" 
-              class="px-4 py-2 border border-red-300 rounded-lg focus:ring-red-500 focus:border-red-500 w-full bg-white" 
-              placeholder="Lietotājvārds" 
-            />
+      <!-- Iebūvētais Profila Panelis -->
+      <div v-if="showProfile" class="mb-8 p-6 bg-white rounded-2xl border border-gray-200 shadow-sm transition-all origin-top flex flex-col gap-6">
+        <div class="flex justify-between items-center">
+          <h2 class="text-xl font-bold text-gray-800">Konta iestatījumi</h2>
+        </div>
+
+        <div v-if="profileMsg" class="p-3 bg-green-50 text-green-700 rounded-lg text-sm">{{ profileMsg }}</div>
+        <div v-if="profileErr" class="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{{ profileErr }}</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          <!-- Lietotājvārda maiņa -->
+          <div class="space-y-3">
+            <h3 class="font-bold text-gray-700">Lietotājvārds</h3>
+            <div>
+              <input v-model="editUsername" type="text" maxlength="32" class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500" />
+            </div>
+            <button @click="saveUsername" :disabled="editUsername === authStore.user?.username" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50">Saglabāt vārdu</button>
           </div>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button 
-              @click="confirmDeleteAccount" 
-              :disabled="deleteConfirmUsername !== authStore.user?.username" 
-              class="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-bold transition flex-1 sm:flex-none whitespace-nowrap"
-            >
-              Apstiprināt
-            </button>
-            <button 
-              @click="showDeleteConfirm = false; deleteConfirmUsername = ''" 
-              class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold transition flex-1 sm:flex-none whitespace-nowrap"
-            >
-              Atcelt
-            </button>
+
+          <!-- Paroles maiņa (Nerādās Discord lietotājiem) -->
+          <div v-if="!authStore.user?.discord_id" class="space-y-3">
+            <h3 class="font-bold text-gray-700">Paroles maiņa</h3>
+            <input v-model="editPasswords.current" type="password" placeholder="Pašreizējā parole" class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 text-sm" />
+            <input v-model="editPasswords.new" type="password" placeholder="Jaunā parole" class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 text-sm" />
+            <input v-model="editPasswords.confirm" type="password" placeholder="Atkārtojiet jauno paroli" class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 text-sm" />
+            <button @click="savePassword" class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold">Mainīt paroli</button>
+          </div>
+          <div v-else class="space-y-3 p-4 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-center text-indigo-700 text-sm">
+            Šis konts ir piesaistīts Discord. Paroles maiņa nav pieejama.
+          </div>
+
+        </div>
+
+        <!-- BĪSTAMĀ ZONA (KONTA DZĒŠANAS SADAĻA) -->
+        <div class="mt-4 pt-6 border-t border-gray-100">
+          <h3 class="font-bold text-red-800 mb-2">Bīstamā zona</h3>
+          
+          <button v-if="!showDeleteConfirm" @click="showDeleteConfirm = true" class="bg-red-100 text-red-700 hover:bg-red-200 px-4 py-2 rounded-lg text-sm font-bold transition">
+            Dzēst kontu
+          </button>
+          
+          <div v-else class="flex flex-col sm:flex-row gap-4 items-end bg-red-50 p-4 rounded-xl border border-red-200">
+            <div class="flex-1 w-full">
+              <label class="text-sm text-gray-700 font-medium mb-1 block">
+                <b>Uzmanību !</b><br> Visi jūsu dati un izveidotās tabulas tiks neatgrizeniski dzēsti! <br><i>(izņemot Plānotos pasākumus)</i> <br>Lai apstiprinātu konta dzēšanu, ievadi savu lietotājvārdu: <span class="font-bold text-red-600 select-none">{{ authStore.user?.username }}</span>
+              </label>
+              <input v-model="deleteConfirmUsername" type="text" class="px-4 py-2 border border-red-300 rounded-lg w-full bg-white text-sm" placeholder="Lietotājvārds" />
+            </div>
+            <div class="flex gap-2 w-full sm:w-auto">
+              <button @click="confirmDeleteAccount" :disabled="deleteConfirmUsername !== authStore.user?.username" class="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold">Apstiprināt</button>
+              <button @click="showDeleteConfirm = false; deleteConfirmUsername = ''" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold">Atcelt</button>
+            </div>
           </div>
         </div>
       </div>
@@ -214,8 +230,13 @@ import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const showProfile = ref(false)
+const profileMsg = ref('')
+const profileErr = ref('')
 const showDeleteConfirm = ref(false)
 const deleteConfirmUsername = ref('')
+const editUsername = ref('')
+const editPasswords = ref({ current: '', new: '', confirm: '' })
 
 // Datu stāvokļi
 const tables = ref<any[]>([])
@@ -352,6 +373,37 @@ const leaveEvent = async (id: number) => {
     const res = await fetch(`/api/events/${id}/participants/${authStore.user?.userId}`, { method: 'DELETE' });
     if (res.ok) await fetchData();
   } catch (e) { console.error(e); }
+}
+
+const toggleProfile = () => {
+  showProfile.value = !showProfile.value
+  editUsername.value = authStore.user?.username || ''
+  profileMsg.value = ''
+  profileErr.value = ''
+  editPasswords.value = { current: '', new: '', confirm: '' }
+  // Dzēšanas apstiprinājuma atiestatīšana
+  showDeleteConfirm.value = false
+  deleteConfirmUsername.value = ''
+}
+
+const saveUsername = async () => {
+  profileMsg.value = ''; profileErr.value = '';
+  if (!editUsername.value || editUsername.value.length < 3) return;
+  const res = await authStore.updateUsername(editUsername.value)
+  if (res.success) profileMsg.value = res.message
+  else profileErr.value = res.error
+}
+
+const savePassword = async () => {
+  profileMsg.value = ''; profileErr.value = '';
+  if (editPasswords.value.new !== editPasswords.value.confirm) {
+    profileErr.value = 'Jaunās paroles nesakrīt!'; return;
+  }
+  const res = await authStore.updatePassword(editPasswords.value.current, editPasswords.value.new)
+  if (res.success) {
+    profileMsg.value = res.message
+    editPasswords.value = { current: '', new: '', confirm: '' }
+  } else profileErr.value = res.error
 }
 
 // Funkcija dzēšanas apstiprināšanai

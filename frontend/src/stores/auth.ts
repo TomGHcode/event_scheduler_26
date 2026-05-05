@@ -10,7 +10,8 @@ export const useAuthStore = defineStore('auth', () => {
     userId: number; 
     username?: string; 
     role: string; 
-    timezone: string; 
+    timezone: string;
+    discord_id?: string | null; 
     settings: UserSettings 
   } | null>(null)
   
@@ -127,6 +128,39 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  const updateUsername = async (username: string) => {
+    try {
+      const response = await fetch('/api/auth/profile/username', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const data = await response.json()
+      if (response.ok && user.value) {
+        user.value.username = username
+        return { success: true, message: data.message }
+      }
+      return { success: false, error: data.error || 'Kļūda' }
+    } catch (e) {
+      return { success: false, error: 'Savienojuma kļūda' }
+    }
+  }
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      const response = await fetch('/api/auth/profile/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await response.json()
+      if (response.ok) return { success: true, message: data.message }
+      return { success: false, error: data.error || 'Kļūda' }
+    } catch (e) {
+      return { success: false, error: 'Savienojuma kļūda' }
+    }
+  }
+
   // Konta dzēšana
   const deleteAccount = async () => {
     try {
@@ -142,5 +176,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, error, login, register, checkAuth, updateSettings, logout, deleteAccount }
+  return { user, error, login, register, checkAuth, updateSettings, logout, updateUsername, updatePassword, deleteAccount }
 })

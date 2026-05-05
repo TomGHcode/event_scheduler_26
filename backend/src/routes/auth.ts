@@ -161,7 +161,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.get('/me', { preHandler: [authenticate] }, async (request, reply) => {
     // Iegūstam svaigākos datus no datubāzes, ieskaitot iestatījumus
     const user = await db.selectFrom('users')
-      .select(['id', 'username', 'role', 'timezone', 'settings_json'])
+      .select(['id', 'username', 'role', 'timezone', 'settings_json', 'discord_id'])
       .where('id', '=', request.user!.userId)
       .executeTakeFirst();
 
@@ -175,6 +175,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         username: user.username,
         role: user.role,
         timezone: user.timezone,
+        discord_id: user.discord_id,
         settings: user.settings_json // { timeFormat: '24h' vai '12h' }
       } 
     });
@@ -202,13 +203,65 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
+  // Lietotājvārda maiņa
+  fastify.patch('/profile/username', {
+    preHandler: [authenticate],
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+    try {
+      const { username } = request.body as any;
+      if (!username || username.length < 3 || username.length > 32) {
+        return reply.status(400).send({ error: 'Lietotājvārdam jābūt no 3 līdz 32 simboliem' });
+      }
+
+      const existing = await db.selectFrom('users').select('id').where('username', '=', username).executeTakeFirst();
+      if (existing) return reply.status(409).send({ error: 'Lietotājvārds jau ir aizņemts' });
+
+      await db.updateTable('users').set({ username }).where('id', '=', request.user!.userId).execute();
+      return reply.status(200).send({ message: 'Lietotājvārds nomainīts' });
+    } catch (error) {
+      return reply.status(500).send({ error: 'Neizdevās nomainīt lietotājvārdu' });
+    }
+  });
+
+  // Paroles maiņa
+  fastify.patch('/profile/password', {
+    preHandler: [authenticate],
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } }
+  }, async (request, reply) => {
+    try {
+      const { currentPassword, newPassword } = request.body as any;
+      if (!newPassword || newPassword.length < 6 || newPassword.length > 128) {
+        return reply.status(400).send({ error: 'Jaunajai parolei jābūt no 6 līdz 128 simboliem' });
+      }
+
+      const user = await db.selectFrom('users')
+        .select(['password_hash', 'discord_id'])
+        .where('id', '=', request.user!.userId)
+        .executeTakeFirst();
+
+      if (!user) return reply.status(404).send({ error: 'Lietotājs nav atrasts' });
+      if (user.discord_id) return reply.status(400).send({ error: 'Discord kontiem nav jāmaina parole' });
+
+      const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+      if (!isMatch) return reply.status(401).send({ error: 'Nepareiza pašreizējā parole' });
+
+      const newHash = await bcrypt.hash(newPassword, 10);
+      await db.updateTable('users').set({ password_hash: newHash }).where('id', '=', request.user!.userId).execute();
+      
+      return reply.status(200).send({ message: 'Parole veiksmīgi nomainīta' });
+    } catch (error) {
+      return reply.status(500).send({ error: 'Neizdevās nomainīt paroli' });
+    }
+  });
+
   // Konta un visu tā datu dzēšana
   fastify.delete('/account', { preHandler: [authenticate] }, async (request, reply) => {
     try {
       const userId = request.user!.userId;
       const sessionId = request.cookies.sessionId;
 
-      // 1. Izdzēšam lietotāju no datubāzes (PostgreSQL CASCADE izdzēsīs visu pārējo)
+      // 1. Izdzēšam lietotāju no datubāzes (PostgreSQL CASCADE izdzēš visu pārējo)
       await db.deleteFrom('users').where('id', '=', userId).execute();
 
       // 2. Iznīcinām sesiju

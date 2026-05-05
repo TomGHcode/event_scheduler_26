@@ -48,10 +48,52 @@ const localFormat = ref<'12h'|'24h'>('24h')
 const localTimezone = ref('Europe/Riga')
 const isSaving = ref(false)
 
-// Saraksts ar populārākajām zonām. Reālā projektā var izmantot pilno Intl atbalstīto sarakstu.
+
 const commonTimezones = [
-  'Europe/Riga', 'Europe/London', 'Europe/Paris', 'UTC',
-  'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo', 'Australia/Sydney'
+  // Universālais laiks
+  'UTC',
+
+  // Eiropa
+  'Europe/London',       // Apvienotā Karaliste, Īrija, Portugāle
+  'Europe/Paris',        // Centrāleiropa (Francija, Spānija, Vācija u.c.)
+  'Europe/Riga',         // Baltija, Austrumeiropa (EET/EEST)
+  'Europe/Kyiv',         // Ukraina
+  'Europe/Istanbul',     // Turcija
+
+  // Ziemeļamerika
+  'America/Los_Angeles', // Pacific Time (PT)
+  'America/Denver',      // Mountain Time (MT)
+  'America/Chicago',     // Central Time (CT)
+  'America/New_York',    // Eastern Time (ET)
+  'America/Toronto',     // Kanāda (Austrumi)
+  'America/Mexico_City', // Meksika
+
+  // Dienvidamerika
+  'America/Sao_Paulo',   // Brazīlija
+  'America/Buenos_Aires',// Argentīna
+  'America/Santiago',    // Čīle
+
+  // Āfrika
+  'Africa/Cairo',        // Ēģipte
+  'Africa/Lagos',        // Rietumāfrika (Nigērija)
+  'Africa/Johannesburg', // Dienvidāfrika
+
+  // Āzija
+  'Asia/Jerusalem',      // Izraēla
+  'Asia/Dubai',          // AAE
+  'Asia/Karachi',        // Pakistāna
+  'Asia/Kolkata',        // Indija
+  'Asia/Bangkok',        // Taizeme, Vjetnama
+  'Asia/Singapore',      // Singapūra, Malaizija
+  'Asia/Shanghai',       // Ķīna
+  'Asia/Tokyo',          // Japāna
+  'Asia/Seoul',          // Dienvidkoreja
+
+  // Austrālija un Klusais okeāns
+  'Australia/Perth',     // Austrālija (Rietumi)
+  'Australia/Sydney',    // Austrālija (Austrumi)
+  'Pacific/Auckland',    // Jaunzēlande
+  'Pacific/Honolulu'     // Havaju salas
 ]
 
 onMounted(() => {
