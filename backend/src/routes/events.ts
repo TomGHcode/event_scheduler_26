@@ -123,7 +123,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
           .values({
             event_table_id: newEvent.id,
             user_id: userId,
-            role_type: 'Owner', // Atbilstoši lomu hierarhijai specifikācijā
+            role_type: 'Owner',
             is_private: false,
           })
           .execute();

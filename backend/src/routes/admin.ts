@@ -6,7 +6,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // Pievienojam autentifikācijas starpniekprogrammatūru (Middleware)
   fastify.addHook('preHandler', authenticate);
 
-  // Papildus Middleware, kas stingri pārbauda, vai lietotājs ir Administrators[cite: 1]
+  // Papildus Middleware, kas stingri pārbauda, vai lietotājs ir Administrators
   fastify.addHook('preHandler', async (request, reply) => {
     if (request.user!.role !== 'Administrator') {
       return reply.status(403).send({ error: 'Piekļuve liegta. Tikai Administratoriem.' });

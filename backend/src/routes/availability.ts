@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authenticate } from '../middleware/auth';
 
-// Validācijas shēmas atbilstoši specifikācijai
+// Validācijas shēmas
 const IntervalSchema = z.object({
-  start_minute: z.number().min(0).max(10079), // Minūtes no nedēļas sākuma [cite: 36]
+  start_minute: z.number().min(0).max(10079), // Minūtes no nedēļas sākuma
   end_minute: z.number().min(0).max(10079),
   status_level: z.enum(['Pieejams', 'Varbut', 'Nav pieejams']), // Statusu līmeņi 
 });
@@ -48,7 +48,7 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
           .returning('id')
           .executeTakeFirstOrThrow();
 		
-	  // LIMITA PĀRBAUDE: 5 Tabulas (izņemot Admin)
+	  // LIMITA PĀRBAUDE: max 5 Tabulas (izņemot Admin)
 		if (userRole !== 'Administrator') {
 			const tableCountRes = await db.selectFrom('availability_tables')
 			  .select(db.fn.count('id').as('total'))
