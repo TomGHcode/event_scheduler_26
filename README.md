@@ -52,11 +52,11 @@ docker compose exec backend node dist/migrate.js
 - Copy the Client ID and Client Secret
 - Go to the section "Reddirects" and add this adress: http://localhost/api/auth/discord/callback
 - Go to the project root folder (place where you can see frontend / backend folders)
-- create a new file ".env" and add this:
+- create a new file ".env" and add this (make sure to replace the example text):
 
 ```
-DISCORD_CLIENT_ID=tavs_client_id_seit
-DISCORD_CLIENT_SECRET=tavs_client_secret_seit
+DISCORD_CLIENT_ID=your_client_id_here
+DISCORD_CLIENT_SECRET=your_client_secret_here
 DISCORD_REDIRECT_URI=http://localhost/api/auth/discord/callback
 ```
 
