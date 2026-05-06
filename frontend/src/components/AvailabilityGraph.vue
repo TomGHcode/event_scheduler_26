@@ -75,7 +75,7 @@
       </div>
     </div>
 
-<!-- 2. REŽĪMS: Top Intervāli -->
+    <!-- 2. REŽĪMS: Top Intervāli -->
     <div v-else-if="viewMode === 'slots'" class="p-6 h-[280px] overflow-y-auto custom-scrollbar">
       <div v-if="processedSlots.length === 0" class="text-center text-gray-400 mt-16 font-medium">Nav atrasts neviens atbilstošs laiks.</div>
       <div v-else class="flex flex-col gap-3">

@@ -22,12 +22,12 @@ app.register(cors, {
 });
 
 app.register(cookie, {
-  secret: process.env.COOKIE_SECRET || 'loti-slepena-atslega-kas-janomaina-produkcija', // Paraksta sīkdatnes drošībai
+  secret: process.env.COOKIE_SECRET || 'loti-slepena-atslega-kas-janomaina-produkcija', // Paraksta sīkdatnes drošībai, // Uzmanību!: DEVELOPMENT ENVIRONMENT ONLY REMOVE IN PRODUCTION
 });
 
 app.register(websocket);
 
-// Iestatām Rate Limiting, izmantojot mūsu Redis instanci
+// Iestatām Rate Limiting, izmantojot Redis instanci
 app.register(fastifyRateLimit, {
   global: true, // Attiecas uz visiem maršrutiem (var pārrakstīt konkrētiem)
   max: 100, // Maksimālais pieprasījumu skaits no vienas IP

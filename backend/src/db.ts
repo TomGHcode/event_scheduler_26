@@ -4,8 +4,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-// 1. Tabulu saskarņu definīcijas saskaņā ar specifikāciju
-
+// 1. Tabulu saskarņu definīcijas
 export interface UsersTable {
   id: Generated<number>;
   username: string;
@@ -13,23 +12,23 @@ export interface UsersTable {
   discord_id: string | null;
   role: string;
   timezone: string;
-  settings_json: JSONColumnType<any>; // [cite: 40]
+  settings_json: JSONColumnType<any>;
 }
 
 export interface AvailabilityTablesTable {
   id: Generated<number>;
   user_id: number;
   name: string;
-  is_active: boolean; // [cite: 41]
+  is_active: boolean;
 }
 
 export interface IntervalsTable {
   id: Generated<number>;
   table_id: number;
-  // Laiks glabājas kā minūtes no nedēļas sākuma (0 - 10079) [cite: 36]
-  start_minute: number; // [cite: 37]
-  end_minute: number; // [cite: 38]
-  status_level: 'Pieejams' | 'Varbut' | 'Nav pieejams'; // Atbilstoši specifikācijai [cite: 18, 42]
+  // Laiks glabājas kā minūtes no nedēļas sākuma (0 - 10079)
+  start_minute: number;
+  end_minute: number;
+  status_level: 'Pieejams' | 'Varbut' | 'Nav pieejams'; // Statusa līmeņi tabulās
 }
 
 export interface EventTablesTable {
@@ -37,24 +36,24 @@ export interface EventTablesTable {
   owner_id: number;
   invite_key: string;
   name: string;
-  description: string | null; // [cite: 43]
+  description: string | null;
 }
 
 export interface EventParticipantsTable {
   id: Generated<number>;
   event_table_id: number;
   user_id: number;
-  availability_table_id: number | null; // Null, ja nav izvēlēta [cite: 23, 44]
-  role_type: 'Owner' | 'Helper' | 'User' | 'Administrator'; // [cite: 25, 26, 27, 28, 44]
-  is_private: boolean; // [cite: 44]
+  availability_table_id: number | null; // Null, ja nav izvēlēta
+  role_type: 'Owner' | 'Helper' | 'User' | 'Administrator'; // Lomas
+  is_private: boolean; // Lietotājiem kas vēlas palikt anonīmi
 }
 
 export interface PlannedEventsTable {
   id: Generated<number>;
   event_table_id: number;
-  start_time: Date; // UTC [cite: 45]
-  end_time: Date; // UTC [cite: 45]
-  metadata: JSONColumnType<any> | null; // [cite: 45]
+  start_time: Date; // UTC
+  end_time: Date; // UTC
+  metadata: JSONColumnType<any> | null;
 }
 
 // 2. Apkopojam visu galvenajā Database saskarnē
@@ -70,7 +69,7 @@ export interface Database {
 // 3. Inicializējam Kysely instanci
 const dialect = new PostgresDialect({
   pool: new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgres://admin:secretpassword@localhost:5432/event_scheduler',
+    connectionString: process.env.DATABASE_URL || 'postgres://admin:secretpassword@localhost:5432/event_scheduler', // Uzmanību!: DEVELOPMENT ENVIRONMENT ONLY REMOVE IN PRODUCTION
   }),
 });
 

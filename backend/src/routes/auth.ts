@@ -23,6 +23,27 @@ const UserAuthSchema = z.object({
     .max(128, "Parole nedrīkst pārsniegt 128 simbolus"),
 });
 
+// Zod iestatījumu atjaunināšanas validācija 
+const UpdateSettingsSchema = z.object({
+  timezone: z.string().min(1, "Laika zona ir obligāta"),
+  timeFormat: z.enum(['12h', '24h']),
+});
+
+// Zod lietotājvārda atjaunināšanas validācija 
+const UpdateUsernameSchema = z.object({
+  username: z.string()
+    .min(3, "Lietotājvārdam jābūt vismaz 3 simbolus garam")
+    .max(32, "Lietotājvārds nedrīkst pārsniegt 32 simbolus"),
+});
+
+// Zod paroles atjaunināšanas validācija 
+const UpdatePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Lūdzu, ievadiet pašreizējo paroli"),
+  newPassword: z.string()
+    .min(6, "Jaunajai parolei jābūt vismaz 6 simbolus garai")
+    .max(128, "Jaunā parole nedrīkst pārsniegt 128 simbolus"),
+});
+
 export default async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/register', {
     config: { rateLimit: { max: 5, timeWindow: '10 minute' } }
@@ -187,8 +208,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
   config: { rateLimit: { max: 15, timeWindow: '1 minute' } }
   }, async (request, reply) => {
     try {
-      const { timezone, timeFormat } = request.body as any; // (vēlāk jāpievieno Zod validācija)
-      
+
+      const parsedBody = UpdateSettingsSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: 'Nekorekti dati' });
+      }
+
+      const { timezone, timeFormat } = parsedBody.data;
       const settings_json = JSON.stringify({ timeFormat: timeFormat || '24h' });
 
       await db.updateTable('users')
@@ -203,16 +229,19 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Lietotājvārda maiņa
+// Lietotājvārda maiņa
   fastify.patch('/profile/username', {
     preHandler: [authenticate],
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } }
   }, async (request, reply) => {
     try {
-      const { username } = request.body as any;
-      if (!username || username.length < 3 || username.length > 32) {
-        return reply.status(400).send({ error: 'Lietotājvārdam jābūt no 3 līdz 32 simboliem' });
+
+      const parsedBody = UpdateUsernameSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: 'Nekorekti dati', details: parsedBody.error.format() });
       }
+
+      const { username } = parsedBody.data;
 
       const existing = await db.selectFrom('users').select('id').where('username', '=', username).executeTakeFirst();
       if (existing) return reply.status(409).send({ error: 'Lietotājvārds jau ir aizņemts' });
@@ -230,10 +259,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } }
   }, async (request, reply) => {
     try {
-      const { currentPassword, newPassword } = request.body as any;
-      if (!newPassword || newPassword.length < 6 || newPassword.length > 128) {
-        return reply.status(400).send({ error: 'Jaunajai parolei jābūt no 6 līdz 128 simboliem' });
+
+      const parsedBody = UpdatePasswordSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({ error: 'Nekorekti dati', details: parsedBody.error.format() });
       }
+
+      const { currentPassword, newPassword } = parsedBody.data;
 
       const user = await db.selectFrom('users')
         .select(['password_hash', 'discord_id'])

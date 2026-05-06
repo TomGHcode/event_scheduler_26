@@ -12,7 +12,7 @@
         </thead>
         <tbody>
           <tr v-for="hour in 24" :key="hour">
-            <!-- Formatējam stundu, izmantojot mūsu palīgfunkciju un store datus -->
+            <!-- Formatējam stundu, izmantojot palīgfunkciju un store datus -->
             <td class="p-2 border border-gray-200 bg-gray-50 text-gray-500 font-medium whitespace-nowrap">
               {{ formatHour(hour - 1, authStore.user?.settings?.timeFormat || '24h') }}
             </td>
@@ -67,17 +67,13 @@ const isDragging = ref(false)
 const dragStatus = ref<Status>('Pieejams')
 const authStore = useAuthStore()
 
-// Klausāmies uz eventu, lai pārveidotu stundas, ja iestatījumi mainās
+// Klausāmies uz eventu, lai pārveidotu stundas, gadījumā ja iestatījumi mainās
 onMounted(() => {
   window.addEventListener('mouseup', stopDrag)
-  window.addEventListener('settings-updated', forceUpdate) // Šis pārzīmēs stundas, jo formāts ir saistīts ar store
 })
 onUnmounted(() => {
   window.removeEventListener('mouseup', stopDrag)
-  window.removeEventListener('settings-updated', forceUpdate)
 })
-
-const forceUpdate = () => { grid.value = [...grid.value] } // Ātrs hack, lai uzspiestu Vue pārzīmēt komponenti
 
 const getNextStatus = (current: Status): Status => {
   if (current === 'Nav pieejams') return 'Pieejams'
@@ -147,7 +143,7 @@ const compileIntervals = () => {
     
     // Ja iepriekšējais beidzas turpat, kur sākas jaunais, UN tiem ir vienāds statuss
     if (last.end === current.start && last.status === current.status) {
-      last.end = current.end // Sapludinām vienā lielā blokā!
+      last.end = current.end // Sapludinām vienā lielā blokā
     } else {
       mergedIntervals.push(current)
     }
@@ -160,7 +156,7 @@ const compileIntervals = () => {
     
     // 10080 ir nedēļas beigas (7 * 24 * 60)
     if (last.end === 10080 && first.start === 0 && last.status === first.status) {
-      last.end = first.end // Šis radīs intervālu, kur start_minute > end_minute (specifikācija to atbalsta)
+      last.end = first.end // Šis radīs intervālu, kur start_minute > end_minute
       mergedIntervals.shift() // Izdzēšam pirmo, jo tas ir pievienots pēdējam
     }
   }

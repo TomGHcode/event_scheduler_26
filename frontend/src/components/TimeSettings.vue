@@ -116,8 +116,6 @@ const changeFormat = async (format: '12h'|'24h') => {
 const saveSettings = async () => {
   isSaving.value = true
   await authStore.updateSettings(localTimezone.value, localFormat.value)
-  // Šeit varētu izsaukt event, lai pārējās komponentes (grid) atjauninās
-  window.dispatchEvent(new Event('settings-updated'))
   isSaving.value = false
 }
 </script>

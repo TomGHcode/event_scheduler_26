@@ -17,7 +17,7 @@ async function migrateToLatest() {
     dialect: new PostgresDialect({
       pool: new Pool({
         // Pārliecināmies, ka izmantojam pareizo URL atkarībā no vides
-        connectionString: process.env.DATABASE_URL || 'postgres://admin:secretpassword@localhost:5432/event_scheduler',
+        connectionString: process.env.DATABASE_URL || 'postgres://admin:secretpassword@localhost:5432/event_scheduler', // Uzmanību!: DEVELOPMENT ENVIRONMENT ONLY REMOVE IN PRODUCTION
       }),
     }),
   });

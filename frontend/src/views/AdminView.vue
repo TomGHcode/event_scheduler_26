@@ -90,7 +90,7 @@ const errorMsg = ref('')
 onMounted(async () => {
   const isAuth = await authStore.checkAuth();
   if (!isAuth || authStore.user?.role !== 'Administrator') {
-    router.push('/'); // Izmetam laukā, ja nav admin[cite: 1]
+    router.push('/'); // Izmetam laukā, ja nav admin
     return;
   }
   await fetchUsers();

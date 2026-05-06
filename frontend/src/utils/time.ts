@@ -27,7 +27,7 @@ export function localToUtc(localMinute: number, timezone: string): number {
   return Math.round(utc);
 }
 
-// Formatē stundu 12h vai 24h sistēmā atbilstoši specifikācijai[cite: 1]
+// Formatē stundu 12h vai 24h sistēmā
 export function formatHour(hour: number, timeFormat: '12h' | '24h'): string {
   if (timeFormat === '24h') return `${hour}:00`;
   const ampm = hour >= 12 ? 'PM' : 'AM';

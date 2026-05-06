@@ -130,7 +130,6 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- Kreisā Puse: Pieejamības Tabulas -->
-        <!-- Pievienojam min-w-0 galvenajam baltajam blokam -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-w-0">
           <div class="flex justify-between items-center mb-6 gap-4">
             <h2 class="text-xl font-bold text-gray-700 truncate">Manas Tabulas</h2>
@@ -144,15 +143,12 @@
           </div>
           
           <div v-else class="flex flex-col gap-3">
-            <!-- Pievienots min-w-0 iekšējam karšu elementam -->
             <div v-for="table in tables" :key="table.id" class="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-gray-50 gap-4 min-w-0">
               
-              <!-- flex-1 un min-w-0 ļauj tekstam lūzt, neizbīdot malas -->
               <div class="flex-1 min-w-0">
                 <div class="font-bold text-gray-800 break-words">{{ table.name }}</div>
               </div>
               
-              <!-- shrink-0 neļauj pogai saspiesties -->
               <router-link :to="`/edit-table/${table.id}`" class="shrink-0 text-blue-600 text-sm font-semibold hover:underline">
                 Rediģēt
               </router-link>
@@ -161,7 +157,6 @@
         </div>
 
         <!-- Labā Puse: Mani Pasākumi -->
-        <!-- Pievienojam min-w-0 galvenajam baltajam blokam -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 min-w-0">
           <div class="flex justify-between items-center mb-6 gap-4">
             <h2 class="text-xl font-bold text-gray-700 truncate">Mani Pasākumi</h2>
@@ -183,7 +178,6 @@
             <div v-for="event in events" :key="event.id" class="p-4 border border-gray-200 rounded-xl flex flex-col sm:flex-row sm:justify-between items-start sm:items-center bg-gray-50 gap-4 min-w-0">
               
               <!-- Kreisā puse: Teksts un Atslēga -->
-              <!-- Pievienots flex-1 min-w-0 w-full drošībai -->
               <div class="flex-1 min-w-0 w-full text-left">
                 <div class="font-bold text-gray-800 break-words">{{ event.name }}</div>
                 <div class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
@@ -196,7 +190,6 @@
                       <button @click="revealedKeys.add(event.id)" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition font-medium">Atklāt</button>
                     </span>
                     <span v-else class="flex items-center gap-2 flex-wrap min-w-0">
-                      <!-- break-all drošībai, ja atslēga nejauši kļūst pārāk gara -->
                       <span class="font-mono bg-blue-50 px-1 rounded break-all">{{ event.invite_key }}</span>
                       <button @click="regenerateKey(event.id)" class="shrink-0 bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-0.5 rounded transition" title="Ģenerēt jaunu atslēgu">↻</button>
                       <button @click="revealedKeys.delete(event.id)" class="shrink-0 text-gray-400 hover:text-gray-600 px-1">✕</button>
@@ -412,7 +405,7 @@ const confirmDeleteAccount = async () => {
   
   const success = await authStore.deleteAccount()
   if (success) {
-    router.push('/register') // Vai /login
+    router.push('/register')
   } else {
     actionError.value = 'Neizdevās izdzēst kontu. Lūdzu mēģiniet vēlāk.'
   }

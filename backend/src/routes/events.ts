@@ -199,8 +199,8 @@ export default async function eventRoutes(fastify: FastifyInstance) {
         })
         .execute();
 	
-	// REĀLLAIKA SIGNĀLS: visiem tabulas lietotājiem atjauno dalībnieku sarakstu.
-	broadcastEventUpdate(eventTable.id);
+	    // REĀLLAIKA SIGNĀLS: visiem tabulas lietotājiem atjauno dalībnieku sarakstu.
+	    broadcastEventUpdate(eventTable.id);
 
 
       return reply.status(200).send({ message: 'Veiksmīgi pievienojāties pasākumam!' });
@@ -209,6 +209,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ error: 'Neizdevās pievienoties pasākumam' });
     }
   });
+
   // 3. Iegūt datus Siltumkartei (Heatmap)
   fastify.get('/:id/heatmap', async (request, reply) => {
     try {
@@ -346,7 +347,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
         .where('id', '=', membership.id)
         .execute();
 	
-	// REĀLLAIKA SIGNĀLS: Paziņojam visiem, ka šis pasākums ir mainījies!
+	// REĀLLAIKA SIGNĀLS: Paziņojam visiem, ka šis pasākums ir mainījies
     broadcastEventUpdate(eventId);
 	
       return reply.status(200).send({ message: 'Tabula veiksmīgi nomainīta!' });
@@ -616,7 +617,7 @@ export default async function eventRoutes(fastify: FastifyInstance) {
       await db.insertInto('planned_events')
         .values({
           event_table_id: eventId,
-          start_time: parsedBody.data.start_time, // Zod to jau konvertēja!
+          start_time: parsedBody.data.start_time, // Zod to jau konvertēja
           end_time: parsedBody.data.end_time,
           metadata: JSON.stringify({
             title: parsedBody.data.title,

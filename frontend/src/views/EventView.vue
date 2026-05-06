@@ -382,7 +382,7 @@ const kickParticipant = async (targetId: number) => {
   try {
     const res = await fetch(`/api/events/${eventId}/participants/${targetId}`, { method: 'DELETE' });
     if (res.ok) {
-      // WebSocket automātiski atjaunos ekrānu, bets papildus varam izsaukt loadEventData(true)
+      // WebSocket automātiski atjaunos ekrānu, bets papildus, drošības pēc, varam izsaukt loadEventData(true)
       await loadEventData(true);
     }
   } catch (error) {
@@ -403,7 +403,7 @@ const updateMyTable = async () => {
     if (res.ok) {
       updateMessage.value = 'Tabula atjaunināta!'
       // Izsaucam backend, tas nosūtīs HEATMAP_UPDATED pa WebSocket,
-      // dati paši pārlādēsies. Papildus varam pārlādēt arī manuāli:
+      // dati paši pārlādēsies. Papildus, drošības pēc, varam pārlādēt arī manuāli:
       await loadEventData(true) 
       setTimeout(() => { updateMessage.value = '' }, 3000)
     } else {
